@@ -41,14 +41,15 @@ def _orient(xi, xj, angle):
     # the local x-axis with the local y-axis.
     if dx == 0 and dy == 0:
         e2 = np.array([1, 0, 0])
-        e3 = np.cross(e1, e2)
 
     # Otherwise, the plane composed of the local x-axis and the local
-    # y-axis is a vertical plane (that is, the normal vector level). In this
+    # y-axis is a vertical plane. In this
     # case, the local z-axis can be obtained by the cross product of the local
     # x-axis and the global z-axis.
     else:
-        e3 = np.cross(e1, E3)
+        e2 = np.cross(E3, e1)
+
+    e3 = np.cross(e1, e2)
 
     # Rotate the local axis using the Rodrigue rotation formula
     # convert from degrees to radians
@@ -64,6 +65,8 @@ def create_frames(sap, model, library, config):
 
     itag = 1
     transform = 1
+
+    tags = {}
 
     for frame in sap.get("CONNECTIVITY - FRAME",[]):
         if _is_truss(frame, sap):
@@ -122,12 +125,14 @@ def create_frames(sap, model, library, config):
 
             assert len(section.integration) == 1
 
-            model.element("PrismFrame", None,
+            e = model.element("PrismFrame", None,
                           nodes,
                           section=section.index,
                           transform=transform-1,
                           mass=mass
             )
+
+            tags[frame["Frame"]] = e
 
 
         elif assign["NPSectType"] == "Default":
@@ -138,17 +143,21 @@ def create_frames(sap, model, library, config):
                                   tuple(i[1] for i in section.integration),
                                   tuple(i[2] for i in section.integration))
 
-            model.element("ForceFrame", None,
+            e = model.element("ForceFrame", None,
                           nodes,
                           transform-1,
                           itag,
                           mass=mass
             )
 
+            tags[frame["Frame"]] = e
             itag += 1
 
         else:
             log.append(UnimplementedInstance("FrameSection.NPSectType", assign["NPSectType"]))
+
+    library["frame_tags"] = tags
+
 
     return log
 
