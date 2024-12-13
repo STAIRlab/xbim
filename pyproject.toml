@@ -1,12 +1,12 @@
 [project]
 name = "openbim"
-version = "0.0.1"
+version = "0.0.2"
 license = {file = "LICENSE.txt"}
 authors = [
   {name="Wensley Rushing", email="50180846+wensley-rushing@users.noreply.github.com"},
 ]
 
-description="Convert models from BIM representations to OpenSees."
+description="Structure information modeling."
 readme = "README.md"
 
 keywords = [
@@ -20,7 +20,8 @@ dependencies = [
   "opensees",
   "sees",
   "meshio",
-  "numpy"
+  "numpy",
+  "genson"
 ]
 
 classifiers = [
