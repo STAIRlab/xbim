@@ -4,13 +4,15 @@
 #
 #===----------------------------------------------------------------------===#
 import meshio
+from . import parser
+from .model import create_model
 
 
 def load(file):
     return meshio.read(file)
 
 
-def create_model(obj, verbose=False):
+def _create_model(obj, verbose=False):
     import opensees.openseespy as ops
 
     model = ops.Model(ndm=3, ndf=6)
