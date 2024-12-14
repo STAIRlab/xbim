@@ -11,7 +11,8 @@ readme = "README.md"
 
 keywords = [
   "dynamics",
-  "integration",
+  "finite-element-analysis",
+  "structural-analysis",
   "seismic",
   "earthquake-engineering",
 ] 
