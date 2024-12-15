@@ -5,7 +5,7 @@
 #===----------------------------------------------------------------------===#
 #
 
-from .utility import UnimplementedInstance, find_row, find_rows
+from .utility import UnimplementedInstance, find_row
 
 def create_points(sap, model, library, config):
     log = []
