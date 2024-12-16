@@ -21,6 +21,31 @@ from .frame import create_frames
 from .point import create_points
 from .link import create_links
 
+def skew(vec):
+    """Construct a skew-symmetric matrix from a 3-vector."""
+    return np.array([
+        [0, -vec[2], vec[1]],
+        [vec[2], 0, -vec[0]],
+        [-vec[1], vec[0], 0]
+    ])
+
+def ExpSO3(vec):
+    """
+    Exponential map for SO(3).
+    Satisfies ExpSO3(vec) == expm(skew(vec)).
+    """
+    vec = np.asarray(vec)
+    if vec.shape != (3,):
+        raise ValueError("Input must be a 3-vector.")
+
+    theta = np.linalg.norm(vec)
+    if theta < 1e-8:  # Small-angle approximation
+        return np.eye(3) + skew(vec) + 0.5 * (skew(vec) @ skew(vec))
+    else:
+        K = skew(vec / theta)  # Normalized skew matrix
+        return np.eye(3) + np.sin(theta) * K + (1 - np.cos(theta)) * (K @ K)
+
+
 RE = {
     "joint_key": re.compile("Joint[0-9]")
 }
@@ -85,6 +110,84 @@ class _ShellSection(_Section):
                       material["UnitMass"]
         )
         self.integration.append(self.index)
+
+def _collect_outlines_nonprism(csi, elem_maps):
+    pass
+
+def collect_outlines(csi, elem_maps=None):
+    polygon_data = csi.get("FRAME SECTION PROPERTIES 06 - POLYGON DATA", [])
+
+    names = set(
+            row["SectionName"] for row in polygon_data
+    )
+    polygons = {
+            s: np.array([
+                [row["X"], row["Y"]]
+                for row in polygon_data if row["Polygon"] == 1 and row["SectionName"] == s
+            ])
+            for s in names
+    }
+
+    # Adjust from reference point
+    for row in polygon_data:
+        if row["Polygon"] == 1 and row["Point"] == 1:
+            ref = (row["RefPtX"], row["RefPtY"])
+
+            for i in range(len(polygons[row["SectionName"]])):
+                polygons[row["SectionName"]][i] -= ref
+
+
+    for row in csi.get("FRAME SECTION PROPERTIES 01 - GENERAL", []):
+        if "Shape" in row and row["Shape"] == "Circle":
+            r = row["t3"]/2
+            polygons[row["SectionName"]] = np.array([
+                [np.sin(x)*r, np.cos(x)*r] for x in np.linspace(0, np.pi*2, 40)
+            ])
+
+    for row in csi.get("FRAME SECTION PROPERTIES 05 - NONPRISMATIC", []):
+        if row["StartSect"] == row["EndSect"] and row["StartSect"] in polygons:
+            polygons[row["SectionName"]] = polygons[row["StartSect"]]
+        else:
+            start = find_row(csi["FRAME SECTION PROPERTIES 01 - GENERAL"],
+                             SectionName=row["StartSect"])
+            end   = find_row(csi["FRAME SECTION PROPERTIES 01 - GENERAL"],
+                             SectionName=row["EndSect"])
+
+            if start["Shape"] == end["Shape"] and start["Shape"] in {
+                    "Circle"
+                }:
+                polygons[row["SectionName"]] = np.array([
+                    [[0, np.sin(x)*r, np.cos(x)*r] for x in np.linspace(0, np.pi*2, 40)]
+                    for r in np.linspace(start["t3"]/2, end["t3"]/2, 2)
+                ])
+
+
+    frame_sections = {
+            row["Frame"]: polygons[row["AnalSect"]]
+            for row in csi.get("FRAME SECTION ASSIGNMENTS",[]) if row["AnalSect"] in polygons
+    }
+
+    # Skew angles
+    for frame in frame_sections:
+        skew = find_row(csi.get("FRAME END SKEW ANGLE ASSIGNMENTS", []),
+                        Frame=frame)
+
+        if skew and len(frame_sections[frame].shape) == 2: #and skew["SkewI"] != 0 and skew["SkewJ"] != 0:
+            E2 = np.array([0, 0,  1])
+            RI = ExpSO3(skew["SkewI"]*np.pi/180*E2)
+            RJ = ExpSO3(skew["SkewJ"]*np.pi/180*E2)
+            frame_sections[frame] = np.array([
+                [[(RI@[0, *point])[0], *point] for point in frame_sections[frame]],
+                [[(RJ@[0, *point])[0], *point] for point in frame_sections[frame]],
+            ])
+
+    if elem_maps is not None:
+        return {
+            elem_maps.get(name,name): val for name, val in frame_sections.items()
+        }
+    else:
+        return frame_sections
+
 
 
 def _create_frame_sections(csi, model, library):
@@ -335,6 +438,7 @@ def create_model(sap, types=None, verbose=False):
     ndm = sum(1 for k,v in sap["ACTIVE DEGREES OF FREEDOM"][0].items()
               if k[0] == "U")
 
+    import sys
     model = ops.Model(ndm=ndm, ndf=ndf)
 
     used.add("ACTIVE DEGREES OF FREEDOM")
@@ -415,5 +519,6 @@ def create_model(sap, types=None, verbose=False):
             if table not in used:
                 print(f"\t{table}", file=sys.stderr)
 
+    model.frame_tags = library.get("frame_tags", {})
     return model
 
