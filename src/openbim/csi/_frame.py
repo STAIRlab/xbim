@@ -59,7 +59,7 @@ def _orient(xi, xj, angle):
     return e3r / np.linalg.norm(e3r)
 
 
-def create_frames(sap, model, library, config):
+def create_frames(csi, model, library, config, conv):
     ndm = config.get("ndm", 3)
     log = []
 
@@ -68,28 +68,29 @@ def create_frames(sap, model, library, config):
 
     tags = {}
 
-    for frame in sap.get("CONNECTIVITY - FRAME",[]):
-        if _is_truss(frame, sap):
-            log.append(UnimplementedInstance("Truss", frame))
+    for frame in csi.get("CONNECTIVITY - FRAME",[]):
+        if _is_truss(frame, csi):
+            conv.log(UnimplementedInstance("Truss", frame))
             continue
 
         if "IsCurved" in frame and frame["IsCurved"]:
-            log.append(UnimplementedInstance("Frame.Curve", frame))
+            conv.log(UnimplementedInstance("Frame.Curve", frame))
 
+        nodes = (
+            conv.identify("Joint", "node", frame["JointI"]),
+            conv.identify("Joint", "node", frame["JointJ"])
+        )
 
-        nodes = (frame["JointI"], frame["JointJ"])
-
-
-        if "FRAME ADDED MASS ASSIGNMENTS" in sap:
-            row = find_row(sap["FRAME ADDED MASS ASSIGNMENTS"],
+        if "FRAME ADDED MASS ASSIGNMENTS" in csi:
+            row = find_row(csi["FRAME ADDED MASS ASSIGNMENTS"],
                             Frame=frame["Frame"])
             mass = row["MassPerLen"] if row else 0.0
         else:
             mass = 0.0
 
         # Geometric transformation
-        if "FRAME LOCAL AXES ASSIGNMENTS 1 - TYPICAL" in sap:
-            row = find_row(sap["FRAME LOCAL AXES ASSIGNMENTS 1 - TYPICAL"],
+        if "FRAME LOCAL AXES ASSIGNMENTS 1 - TYPICAL" in csi:
+            row = find_row(csi["FRAME LOCAL AXES ASSIGNMENTS 1 - TYPICAL"],
                             Frame=frame["Frame"])
             angle = row["Angle"] if row else 0.0
         else:
@@ -97,7 +98,7 @@ def create_frames(sap, model, library, config):
 
         xi = np.array(model.nodeCoord(nodes[0]))
         xj = np.array(model.nodeCoord(nodes[1]))
-        if np.linalg.norm(xj - xi) <= 1e-10:
+        if np.linalg.norm(xj - xi) < 1e-10:
             log.append(UnimplementedInstance("Frame.ZeroLength", frame))
             print(f"ZERO LENGTH FRAME: {frame['Frame']}", file=sys.stderr)
             continue
@@ -111,14 +112,14 @@ def create_frames(sap, model, library, config):
         transform += 1
 
 
-        # Find section
-        assign  = find_row(sap["FRAME SECTION ASSIGNMENTS"],
+        # Find section assignemnt
+        assign  = find_row(csi["FRAME SECTION ASSIGNMENTS"],
                            Frame=frame["Frame"])
 
         if assign["MatProp"] != "Default":
-            log.append(UnimplementedInstance("FrameSection.MatProp", assign["MatProp"]))
+            conv.log(UnimplementedInstance("FrameSection.MatProp", assign["MatProp"]))
 
-        section = library["frame_sections"][assign["AnalSect"]]
+        section = library["frame_sections"][assign["AnalSect"]] # conv.identify("AnalSect", "section", assign["AnalSect"]) #
 
         if ("SectionType" not in assign) or (assign["SectionType"] != "Nonprismatic") or \
            assign["NPSectType"] == "Advanced":
@@ -136,6 +137,8 @@ def create_frames(sap, model, library, config):
 
 
         elif assign["NPSectType"] == "Default":
+            # Non-prismatic sections
+            # We have to create an integration rule
             model.beamIntegration("UserDefined",
                                   itag,
                                   len(section.integration),
@@ -154,7 +157,7 @@ def create_frames(sap, model, library, config):
             itag += 1
 
         else:
-            log.append(UnimplementedInstance("FrameSection.NPSectType", assign["NPSectType"]))
+            conv.log(UnimplementedInstance("FrameSection.NPSectType", assign["NPSectType"]))
 
     library["frame_tags"] = tags
 
