@@ -7,39 +7,57 @@
 
 from .utility import UnimplementedInstance, find_row
 
-def create_points(sap, model, library, config):
+def create_points(csi, model, library, config, conv):
     log = []
     ndm = config["ndm"]
     ndf = config["ndf"]
 #   dofs = config["dofs"]
-    dofs = sap["ACTIVE DEGREES OF FREEDOM"][0]
+    dofs = csi["ACTIVE DEGREES OF FREEDOM"][0]
 
     used = set()
 
-    for node in sap["JOINT COORDINATES"]:
-        model.node(node["Joint"], tuple(node[i] if i in node else 0.0 for i in ("XorR", "Y", "Z")))
+    for node in csi["JOINT COORDINATES"]:
+
+        if node["CoordSys"] != "GLOBAL":
+            coordinates = tuple(node[i] if i in node else 0.0 for i in ("GlobalX", "GlobalY", "GlobalZ"))
+            # log.append(UnimplementedInstance(f"Joint.Mass.CoordSys={node['CoordSys']}", node))
+        else:
+            coordinates = tuple(node[i] if i in node else 0.0 for i in ("XorR", "Y", "Z"))
+
+        node_tag = conv.define("Joint", "node", node["Joint"])
+
+
+        model.node(node_tag, coordinates)
 
         for i,v in enumerate(dofs.values()):
             if not v:
-                model.fix(node["Joint"], dof=i+1)
+                model.fix(node_tag, dof=i+1)
 
-    for node in sap.get("JOINT RESTRAINT ASSIGNMENTS", []):
+    for node in csi.get("JOINT RESTRAINT ASSIGNMENTS", []):
+        # # TODO!!
+        # try:
+        #     int(node["Joint"])
+        # except:
+        #     continue
+
+        node_tag = conv.identify("Joint", "node", node["Joint"])
         # Only fix dofs that werent aready fixed globally
         # Note that dof keys look like UX, RY, etc, but in the restraint
         # table they look like U1, R2, etc
-        model.fix(node["Joint"], tuple(int(node[f"{key[0]}{'XYZ'.find(key[1])+1}"]) if dofs[key] else 0 for key in dofs))
+        model.fix(node_tag, tuple(int(node[f"{key[0]}{'XYZ'.find(key[1])+1}"]) if dofs[key] else 0 for key in dofs))
 
 
-    for node in sap.get("JOINT ADDED MASS ASSIGNMENTS", []):
+    for node in csi.get("JOINT ADDED MASS ASSIGNMENTS", []):
         mass = [node[f"Mass{i+1}"] for i in range(ndm)]
         mass = mass + [0.0]*(ndf-len(mass))
+        node_tag = conv.identify("Joint", "node", node["Joint"])
         if node["CoordSys"] != "GLOBAL":
-            log.append(UnimplementedInstance(f"Joint.Mass.CoordSys={node['CoordSys']}", node))
-        model.mass(node["Joint"], tuple(mass))
+            conv.log(UnimplementedInstance(f"Joint.Mass.CoordSys={node['CoordSys']}", node))
+        model.mass(node_tag, tuple(mass))
 
 
-    for node in sap.get("JOINT ADDED MASS BY VOLUME ASSIGNMENTS", []):
-        dens = find_row(sap.get("MATERIAL PROPERTIES 02 - BASIC MECHANICAL PROPERTIES",[]),
+    for node in csi.get("JOINT ADDED MASS BY VOLUME ASSIGNMENTS", []):
+        dens = find_row(csi.get("MATERIAL PROPERTIES 02 - BASIC MECHANICAL PROPERTIES",[]),
                         Material=node["Material"])["UnitMass"]
         vols = [node[f"Vol{i+1}"] for i in range(1,ndm) if f"Vol{i+1}" in node]
         vols = vols + [0.0]*(ndf-len(vols))
@@ -52,7 +70,7 @@ def create_points(sap, model, library, config):
     used.add("JOINT ADDED MASS BY VOLUME ASSIGNMENTS")
 
 
-    log.extend( _apply_constraints(sap, model, library, config) )
+    log.extend( _apply_constraints(csi, model, library, config) )
 
     used.add("JOINT CONSTRAINT ASSIGNMENTS")
 

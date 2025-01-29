@@ -37,6 +37,7 @@ if __name__ == "__main__":
                         "frame_outlines": outlines
                     }
         )
+
         if sys.argv[1] == "-Vo":
             artist.save(sys.argv[3])
         else:

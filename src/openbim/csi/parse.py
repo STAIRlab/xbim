@@ -23,7 +23,18 @@ def _parse_value(v):
 
 def load(file, append: dict=None):
     """
-    Read file-like object file and form a dictionary.
+    Read file-like object file and form a dictionary. 
+
+    Returns
+    =======
+
+    csi: A dictionary with the layout:
+        {
+           "TABLE NAME": [
+            {"Key": "Val"},
+            ...
+           ]
+        }
     """
     if append is None:
         tables = {}

@@ -6,7 +6,11 @@
 #
 import numpy as np
 from .utility import UnimplementedInstance, find_row, find_rows
+from .handler import Handler
 
+
+class LinkHandler(Handler):
+    pass
 
 def _orient(xi, xj, deg):
     # Calculate the direction vector of the link element
@@ -54,12 +58,18 @@ _link_tables = {
     "???????             " : "LINK PROPERTY DEFINITIONS 11 - MULTILINEAR PLASTIC",
 }
 
-def create_links(csi, model, library, config):
-    log = []
-
+def create_links(csi, model, library, config, conv):
 
     for link in csi.get("CONNECTIVITY - LINK",[]):
-        nodes = (link["JointI"], link["JointJ"])
+
+        nodes = (
+            conv.identify("Joint", "node", link["JointI"]),
+            conv.identify("Joint", "node", link["JointJ"])
+        )
+
+        # if any(not (isinstance(node, int) or node.isdigit()) for node in nodes):
+        #     conv.log(UnimplementedInstance(f"Joint: non-integer nodes", assign))
+        #     continue
 
         assign = find_row(csi["LINK PROPERTY ASSIGNMENTS"],
                           Link=link["Link"])
@@ -70,20 +80,24 @@ def create_links(csi, model, library, config):
                              Link=assign["LinkProp"])
 
             if props["LinkType"] != "Linear":
-                log.append(UnimplementedInstance(f"Joint.SingleJoint.LinkType={props['LinkType']}", assign))
+                conv.log(UnimplementedInstance(f"Joint.SingleJoint.LinkType={props['LinkType']}", assign))
 
             # TODO: Implement soil springs
             props = find_rows(csi["LINK PROPERTY DEFINITIONS 02 - LINEAR"],
                              Link=assign["LinkProp"])
 
-            flags = tuple(1 if find_row(props, DOF=f"{dof[0]}{'XYZ'.find(dof[1])+1}") and config["dofs"][dof] else 0 for dof in config["dofs"])
+            flags = tuple(
+                1 if find_row(props, DOF=f"{dof[0]}{'XYZ'.find(dof[1])+1}") and config["dofs"][dof]
+                  else 0
+                  for dof in config["dofs"]
+            )
 
             model.fix(nodes[0], flags)
 
             continue
 
         elif assign["LinkJoints"] != "TwoJoint":
-            log.append(UnimplementedInstance(f"Joint.{assign['LinkJoints']}", assign))
+            conv.log(UnimplementedInstance(f"Joint.{assign['LinkJoints']}", assign))
             continue
 
         #
@@ -93,6 +107,9 @@ def create_links(csi, model, library, config):
         dofs = tuple(library["link_materials"][assign["LinkProp"]].keys())
         dofs = tuple(["U1", "U2", "U3", "R1", "R2", "R3"].index(i)+1 for i in dofs)
 
+        if len(dofs) == 0:
+            conv.log(UnimplementedInstance(f"Joint.DOFS", assign))
+            continue
 
 
         #
@@ -137,5 +154,5 @@ def create_links(csi, model, library, config):
                       dir=dofs
                       )
 
-    return log
+    return
 
