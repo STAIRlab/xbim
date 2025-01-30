@@ -203,7 +203,7 @@ def load(filename):
                     for attr in parts[1].split(","):
                         key_value = attr.split("=")
                         if len(key_value) == 2:
-                            attributes[key_value[0].strip()] = key_value[1].strip()
+                            attributes[key_value[0].strip().lower()] = key_value[1].strip()
 
                 # Create a new node
                 current_node = AbaqusTable(keyword,
