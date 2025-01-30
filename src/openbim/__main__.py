@@ -25,12 +25,12 @@ if __name__ == "__main__":
 
     elif sys.argv[1] == "-E":
         # Eigen
-        import sees
+        import veux
         model.constraints("Transformation")
         W = model.eigen(2)
         for w in W:
             print(f"T = {2*np.pi/np.sqrt(w)}")
-        sees.serve(sees.render_mode(model, 1, 200.0, vertical=3, canvas="gltf"))
+        veux.serve(veux.render_mode(model, 1, 200.0, vertical=3, canvas="gltf"))
 
     elif sys.argv[1] == "-A":
         # Apply loads and analyze
@@ -39,8 +39,13 @@ if __name__ == "__main__":
 
     elif sys.argv[1] == "-V":
         # Visualize
-        import sees
-        sees.serve(sees.render(model, canvas="gltf", vertical=3, hide={"node.marker"}))
+        import veux
+        veux.serve(veux.render(model, canvas="gltf", vertical=3, hide={"node.marker"}))
+
+    elif sys.argv[1] == "-Vo":
+        # Visualize
+        import veux
+        veux.render(model, canvas="gltf", vertical=3, hide={"node.marker"}).save(sys.argv[3])
 
     elif sys.argv[1] == "-Vn":
         # Visualize
@@ -57,8 +62,9 @@ if __name__ == "__main__":
             for tag in model.getNodeTags()
         }
 
-        import sees
-        sees.serve(sees.render(model, u, canvas="gltf", vertical=3))
+        import veux
+        veux.serve(veux.render(model, u, canvas="gltf", vertical=3))
+
 
     elif sys.argv[1] == "-Q":
         # Quiet conversion
