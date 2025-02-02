@@ -18,9 +18,10 @@ from .point import create_points
 from .link import create_links
 from ._section import (
     create_frame_sections, 
-    create_shell_sections,
-    collect_outlines
+    create_shell_sections#,
+    # collect_outlines
 )
+from ._integration import section_geometry, collect_sections as collect_outlines
 
 CONFIG = {
     "Frame": {

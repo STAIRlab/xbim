@@ -26,7 +26,8 @@ class Converter:
                 },
             },
             "AnalSect": {
-                "section": {}
+                "section": {},
+                "integration": {}
             }
         }
         self._ops_count = {
