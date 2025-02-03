@@ -1,6 +1,6 @@
 
 from .utility import UnimplementedInstance, find_row
-from .convert import RE, TYPES
+from ..convert import RE, TYPES
 
 def create_shells(csi, model, library, conv):
     for shell in csi.get("CONNECTIVITY - AREA", []):

@@ -7,13 +7,16 @@ if __name__ == "__main__":
         csi = load(f)
 
 
-    model = create_model(csi, verbose=True)
 
     if sys.argv[1] == "-C":
         # Convert
+        model = create_model(csi, verbose=False)
         model.print("-json")
+        sys.exit()
 
-    elif sys.argv[1] == "-E":
+    model = create_model(csi, verbose=True)
+
+    if sys.argv[1] == "-E":
         # Eigen
         import veux
         model.constraints("Transformation")

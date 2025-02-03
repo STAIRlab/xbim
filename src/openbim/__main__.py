@@ -14,7 +14,6 @@ if __name__ == "__main__":
             obj = lib.load(f)
 
 
-
     model = lib.create_model(obj, verbose=True)
 
     print("Created model")

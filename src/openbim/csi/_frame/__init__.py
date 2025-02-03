@@ -7,7 +7,7 @@
 import sys
 import numpy as np
 
-from .utility import UnimplementedInstance, find_row
+from ..utility import UnimplementedInstance, find_row
 
 
 def _is_truss(frame, csi):
@@ -63,7 +63,7 @@ def create_frames(csi, model, library, config, conv):
     ndm = config.get("ndm", 3)
     log = []
 
-    itag = 1
+    # itag = 1
     transform = 1
 
     tags = {}
@@ -88,7 +88,9 @@ def create_frames(csi, model, library, config, conv):
         else:
             mass = 0.0
 
+        #
         # Geometric transformation
+        #
         if "FRAME LOCAL AXES ASSIGNMENTS 1 - TYPICAL" in csi:
             row = find_row(csi["FRAME LOCAL AXES ASSIGNMENTS 1 - TYPICAL"],
                             Frame=frame["Frame"])
@@ -111,53 +113,40 @@ def create_frames(csi, model, library, config, conv):
 
         transform += 1
 
+        #
+        # Section
+        #
+        assign  = find_row(csi["FRAME SECTION ASSIGNMENTS"], Frame=frame["Frame"])
 
-        # Find section assignemnt
-        assign  = find_row(csi["FRAME SECTION ASSIGNMENTS"],
-                           Frame=frame["Frame"])
-
-        if assign["MatProp"] != "Default":
-            conv.log(UnimplementedInstance("FrameSection.MatProp", assign["MatProp"]))
-
-        section = library["frame_sections"][assign["AnalSect"]] # conv.identify("AnalSect", "section", assign["AnalSect"]) #
+        # section = library["frame_sections"][assign["AnalSect"]] # conv.identify("AnalSect", "section", assign["AnalSect"]) #
 
         if ("SectionType" not in assign) or (assign["SectionType"] != "Nonprismatic") or \
            assign["NPSectType"] == "Advanced":
-
-            assert len(section.integration) == 1
-
+            
+            section = conv.identify("AnalSect", "section", assign["AnalSect"])
             e = model.element("PrismFrame", None,
                           nodes,
-                          section=section.index,
+                          section=section,
                           transform=transform-1,
                           mass=mass
             )
-
             tags[frame["Frame"]] = e
 
 
         elif assign["NPSectType"] == "Default":
             # Non-prismatic sections
-            # We have to create an integration rule
-            model.beamIntegration("UserDefined",
-                                  itag,
-                                  len(section.integration),
-                                  tuple(i[0] for i in section.integration),
-                                  tuple(i[1] for i in section.integration),
-                                  tuple(i[2] for i in section.integration))
-
-            e = model.element("ForceFrame", None,
-                          nodes,
-                          transform-1,
-                          itag,
-                          mass=mass
+            e = model.element("ForceFrame",
+                              None,
+                              nodes,
+                              transform-1,
+                              conv.identify("AnalSect", "integration", assign["AnalSect"]),
+                              mass=mass
             )
-
             tags[frame["Frame"]] = e
-            itag += 1
 
         else:
             conv.log(UnimplementedInstance("FrameSection.NPSectType", assign["NPSectType"]))
+            continue
 
     library["frame_tags"] = tags
 

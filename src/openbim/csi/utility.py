@@ -5,7 +5,7 @@ class Log:
         pass
 
 class UnimplementedInstance:
-    def __init__(self, name, object, table=None):
+    def __init__(self, name, object=None, table=None):
         self.name = name 
         self.object = object
         self.table = table

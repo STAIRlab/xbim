@@ -9,7 +9,7 @@
 #
 
 import numpy as np
-from .convert import Converter
+from ..convert import Converter
 from .parse import load
 from .utility import UnimplementedInstance, print_log
 from ._frame import create_frames
@@ -17,11 +17,13 @@ from ._shell import create_shells
 from .point import create_points
 from .link import create_links
 from ._section import (
-    create_frame_sections, 
-    create_shell_sections#,
-    # collect_outlines
+    create_shell_sections
 )
-from ._integration import section_geometry, collect_sections as collect_outlines
+from ._frame.section import (
+    create_frame_sections, 
+    section_geometry,
+    collect_geometry as collect_outlines
+)
 
 CONFIG = {
     "Frame": {
@@ -43,7 +45,7 @@ def create_materials(csi, model, conv):
 
     for link in csi.get("LINK PROPERTY DEFINITIONS 02 - LINEAR", []):
         if link["Fixed"]:
-            # TODO: log warning
+            conv.log(UnimplementedInstance("Link.Fixed", link))
             pass
 
         name = link["Link"]
@@ -92,7 +94,7 @@ def create_materials(csi, model, conv):
 
 
     # 2) Frame
-    create_frame_sections(csi, model, library, conv)
+    create_frame_sections(csi, model, conv)
 
 
     # 3) Shell
@@ -141,11 +143,14 @@ def create_model(csi, types=None, verbose=False):
     ndf = sum(1 for v in csi["ACTIVE DEGREES OF FREEDOM"][0].values())
     ndm = sum(1 for k,v in csi["ACTIVE DEGREES OF FREEDOM"][0].items()
               if k[0] == "U")
+    if verbose:
+        import sys
+        echo_file = sys.stdout
+    else:
+        echo_file = None
+    model = ops.Model(ndm=ndm, ndf=ndf, echo_file=echo_file)
 
-    import sys
-    model = ops.Model(ndm=ndm, ndf=ndf)
-
-    conv = Converter(csi)
+    conv = Converter()
 
     used.add("ACTIVE DEGREES OF FREEDOM")
 
