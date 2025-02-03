@@ -1,3 +1,9 @@
+#===----------------------------------------------------------------------===#
+#
+#         STAIRLab -- STructural Artificial Intelligence Laboratory
+#
+#===----------------------------------------------------------------------===#
+#
 import opensees.openseespy as ops
 import json
 import sys
@@ -192,8 +198,6 @@ def create_model(ast, verbose=False):
                 load_values = list(map(float, load_data[1:]))
                 model.load(node_id, *load_values)
 
-
-
     #
     # Create elements
     #
@@ -202,7 +206,7 @@ def create_model(ast, verbose=False):
         try:
             element_type = abaqus_to_meshio_type[block.attributes.get("type", block.attributes.get("TYPE", None))]
         except Exception as e:
-            print(block.attributes, e)
+            print("WARNING ", block.attributes, e, file=sys.stderr)
             continue
 
         if element_type == "hexahedron":
@@ -211,7 +215,7 @@ def create_model(ast, verbose=False):
                     model.element("stdBrick", i, tuple(nodes), mat)
                     i += 1
                 else:
-                    print("Brick with ", len(nodes), "nodes")
+                    print("WARNING Brick with ", len(nodes), "nodes", file=sys.stderr)
 
         elif element_type == "quad":
             for tag, *nodes in _iter_nodes(block):
@@ -219,7 +223,7 @@ def create_model(ast, verbose=False):
                     model.element("ShellMITC4", i, tuple(nodes), mat, 12.0)
                     i += 1
                 else:
-                    print("Quad with ", len(nodes), "nodes")
+                    print("WARNING Quad with ", len(nodes), "nodes", file=sys.stderr)
 
         elif element_type == "line":
             fsec = 1
@@ -230,7 +234,7 @@ def create_model(ast, verbose=False):
                     model.element("PrismFrame", i, tuple(nodes), section=fsec, transform=1)
                     i += 1
                 else:
-                    print("Frame with ", len(nodes), "nodes")
+                    print("Frame with ", len(nodes), "nodes", file=sys.stderr)
 
         elif element_type == "triangle":
             for tag, *nodes in _iter_nodes(block):

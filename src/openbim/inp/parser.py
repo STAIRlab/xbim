@@ -3,11 +3,6 @@
 #         STAIRLab -- STructural Artificial Intelligence Laboratory
 #
 #===----------------------------------------------------------------------===#
-
-import json
-import shlex
-import opensees.openseespy as ops
-
 """
 Assembly: Contains instances of parts but does not directly contain nodes or elements.
 Part: Contains nodes, elements, materials, and sections.
@@ -99,7 +94,7 @@ class AbaqusTable:
         self.data = []
         self.child_keys = child_keys
 
-    def add_child(self, child_node: "Node"):
+    def add_child(self, child_node):
         self.children.append(child_node)
 
     def find_attr(self, keyword, **attrs):
@@ -135,7 +130,6 @@ class AbaqusTable:
         return tag
 
     def __repr__(self, level=0):
-        # return f"<{self.keyword}>"
         ret = "  " * level + self._open_tag()
         for child in self.children:
             ret += child.__repr__(level + 1)
@@ -164,11 +158,10 @@ def _read_set(f, params_map):
         else:
             set_names.append(line[0])
 
-    set_ids = np.array(set_ids, dtype="int32")
     if "GENERATE" in params_map:
         if len(set_ids) != 3:
-            raise ReadError(set_ids)
-        set_ids = np.arange(set_ids[0], set_ids[1] + 1, set_ids[2], dtype="int32")
+            raise Exception(set_ids)
+        set_ids = range(set_ids[0], set_ids[1] + 1, set_ids[2])
     return set_ids, set_names, line
 
 
@@ -240,147 +233,10 @@ def load(filename, verbose=False):
                 current_node.data.append(line)
 
         return root
-
-
-def create_opensees_model(ast):
-    # Create a new model
-    model = ops.Model(ndm=3, ndf=3)
-
-    # Dictionary to map material names/IDs
-    material_map = {}
-    section_map = {}
-
-    # Parse materials
-#   for node in ast.find_all("Material"):
-#       for child in node.children:
-#           if child.keyword == "Elastic":
-#               material_name = node.attributes.get("name")
-#               properties = child.children[0].attributes.get("data").split(",")
-#               E = float(properties[0])
-#               nu = float(properties[1])
-#               #                   model.uniaxialMaterial('Elastic', material_name, E)
-#               model.material("ElasticIsotropic", material_name, E, nu)
-
-#           elif child.keyword == "Plastic":
-#               material_name = node.attributes.get("name")
-#               properties = child.children[0].attributes.get("data").split(",")
-#               E = float(properties[0])
-#               yield_strength = float(properties[1])
-#               model.uniaxialMaterial("Plastic", material_name, E, yield_strength)
-
-#           elif child.keyword == "Concrete":
-#               material_name = node.attributes.get("name")
-#               properties = child.children[0].attributes.get("data").split(",")
-#               f_c = float(properties[0])  # Compressive strength
-#               f_t = float(properties[1])  # Tensile strength
-#               model.uniaxialMaterial("Concrete", material_name, f_c, f_t)
-
-#           material_map[node.attributes.get("name")] = material_name
-
-#       if node.keyword == "Section":
-#           section_name = node.attributes.get("name")
-#           material_name = node.attributes.get("material")
-#           thickness = node.attributes.get(
-#               "thickness", None
-#           )  # Optional, for 2D elements
-
-#           # Store the section information
-#           section_map[section_name] = {
-#               "material": material_name,
-#               "thickness": thickness,
-#           }
-
-    if child.keyword == "Node":
-        for entry in child.children:
-            node_data = entry.attributes.get("data").split(",")
-            node_id = int(node_data[0])
-            coords = list(map(float, node_data[1:]))
-            model.node(node_id, *coords)
-
-    # Create elements
-    for node in ast.children:
-        if node.keyword == "Part":
-            for child in node.children:
-
-                if child.keyword == "Element":
-                    for entry in child.children:
-                        element_data = entry.attributes.get("data").split(",")
-                        element_id = int(element_data[0])
-                        element_type = element_data[1]
-                        connectivity = list(map(int, element_data[2:]))
-
-                        # Extract material assignment
-                        material_id = entry.attributes.get(
-                            "material"
-                        )  # Assume material ID is stored here
-
-                        # Tetrahedral elements
-                        if element_type == "C3D4":
-                            model.element("tetrahedron", element_id, *connectivity)
-
-                        # BEAMS
-                        elif element_type == "B31":
-                            model.element(
-                                "elasticBeamColumn", element_id, *connectivity
-                            )  # Linear 2-node beam
-
-                        elif element_type == "B32":
-                            model.element(
-                                "elasticBeamColumn", element_id, *connectivity
-                            )  # Quadratic 3-node beam
-
-                        elif element_type == "B33":
-                            model.element(
-                                "elasticBeamColumn", element_id, *connectivity
-                            )  # Linear 3-node beam
-
-                        elif element_type == "B21":
-                            model.element(
-                                "elasticBeamColumn", element_id, *connectivity
-                            )  # 2D beam
-
-                        elif element_type == "B22":
-                            model.element(
-                                "elasticBeamColumn", element_id, *connectivity
-                            )  # Quadratic 2-node beam
-
-                        elif element_type == "C0D2":  # Beam example
-                            model.element(
-                                "elasticBeamColumn", element_id, *connectivity
-                            )
-
-                        # SOLID
-                        elif element_type == "C3D8":  # Hexahedral element
-                            model.element("brick", element_id, *connectivity)
-
-                        elif element_type == "C2D4":  # 2D quadrilateral element
-                            model.element("quad", element_id, *connectivity)
-
-                        elif (
-                            element_type == "C3D10"
-                        ):  # Tetrahedral element with mid-side nodes
-                            model.element(
-                                "tetrahedron", element_id, *connectivity
-                            )  # or use specific type
-
-                        else:
-                            print(
-                                f"Warning: Unrecognized element type {element_type} for element ID {element_id}."
-                            )
-
-
-        elif node.keyword == "Load":
-            for child in node.children:
-                load_data = child.attributes.get("data").split(",")
-                node_id = int(load_data[0])
-                load_values = list(map(float, load_data[1:]))
-                model.load(node_id, *load_values)
-
+    
 
 if __name__ == "__main__":
     import sys
 
     ast = load(sys.argv[1])
     print(ast)
-
-#   create_opensees_model(ast)
