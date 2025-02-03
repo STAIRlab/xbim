@@ -172,7 +172,7 @@ def _read_set(f, params_map):
     return set_ids, set_names, line
 
 
-def load(filename):
+def load(filename, verbose=False):
 
     with open(filename, "r") as file:
         root = current_node = AbaqusTable("root", child_keys=hierarchy["root"])
@@ -196,7 +196,6 @@ def load(filename):
                 # Split keyword and attributes
                 parts = line[1:].split(",", 1)
                 keyword = line.partition(",")[0].strip().replace("*", "").title() # parts[0].strip()
-                print(keyword)
                 attributes = {}
                 if len(parts) > 1:
                     # Process attributes
@@ -216,7 +215,7 @@ def load(filename):
                     if keyword in stack[-1].child_keys:
                         break
                     popped = stack.pop()
-                    if True:
+                    if verbose:
                         print(f">> Popped {popped.keyword} from {keyword}; parent is {stack[-1].keyword}")
                 stack[-1].add_child(current_node)
 

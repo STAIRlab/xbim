@@ -55,7 +55,12 @@ if __name__ == "__main__":
     elif sys.argv[1] == "-V":
         # Visualize
         import veux
-        veux.serve(veux.render(model, canvas="gltf", vertical=3, hide={"node.marker"}))
+        # veux.serve(veux.render(model, canvas="gltf", vertical=3, hide={"node.marker"}))
+                # artist = veux.render(model, model.nodeDisp, scale=1.0, vertical=3, hide={"node.marker"})
+        artist = veux.create_artist(model, vertical=3)
+        # artist.draw_outlines()
+        artist.draw_surfaces()
+        veux.serve(artist)
 
     elif sys.argv[1] == "-Vn":
         # Visualize
@@ -72,8 +77,8 @@ if __name__ == "__main__":
             for tag in model.getNodeTags()
         }
 
-        import sees
-        sees.serve(sees.render(model, u, canvas="gltf", vertical=3))
+        import veux
+        veux.serve(veux.render(model, u, canvas="gltf", vertical=3))
 
     elif sys.argv[1] == "-Q":
         # Quiet conversion

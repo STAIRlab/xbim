@@ -1,5 +1,7 @@
 import opensees.openseespy as ops
 import json
+import sys
+from openbim.convert import Converter
 
 abaqus_to_meshio_type = {
     # trusses
@@ -84,9 +86,9 @@ def _iter_nodes(block):
         yield map(int, line.split(","))
 
 def create_model(ast, verbose=False):
-    print(ast)
     # Create a new model
     model = ops.Model(ndm=3, ndf=6)
+    conv = Converter()
 
     # Create Materials
 
@@ -105,47 +107,45 @@ def create_model(ast, verbose=False):
     #
 
     # Parse materials
-    if False:
+    if True:
         # Dictionary to map material names/IDs
-        material_map = {}
         section_map = {}
 
         for node in ast.find_all("Material"):
             for child in node.children:
                 if child.keyword == "Elastic":
-                    material_name = node.attributes.get("name")
-                    properties = child.children[0].attributes.get("data").split(",")
+                    tag = conv.define("Material", "material", node.attributes.get("name"))
+                    properties = child.data[0].split(",")
                     E = float(properties[0])
                     nu = float(properties[1])
                     #                   model.uniaxialMaterial('Elastic', material_name, E)
-                    model.material("ElasticIsotropic", material_name, E, nu)
+                    model.material("ElasticIsotropic", tag, E, nu)
 
                 elif child.keyword == "Plastic":
-                    material_name = node.attributes.get("name")
-                    properties = child.children[0].attributes.get("data").split(",")
+                    continue
+                    tag = conv.define("Material", "material", node.attributes.get("name"))
+                    properties = child.data[0].split(",")
                     E = float(properties[0])
                     yield_strength = float(properties[1])
-                    model.uniaxialMaterial("Plastic", material_name, E, yield_strength)
+                    model.uniaxialMaterial("Plastic", tag, E, yield_strength)
 
                 elif child.keyword == "Concrete":
-                    material_name = node.attributes.get("name")
+                    continue
+                    tag = conv.define("Material", "uniaxial", node.attributes.get("name"))
                     properties = child.children[0].attributes.get("data").split(",")
                     f_c = float(properties[0])  # Compressive strength
                     f_t = float(properties[1])  # Tensile strength
-                    model.uniaxialMaterial("Concrete", material_name, f_c, f_t)
+                    model.uniaxialMaterial("Concrete", tag, f_c, f_t)
 
-                material_map[node.attributes.get("name")] = material_name
 
             if node.keyword == "Section":
-                section_name = node.attributes.get("name")
-                material_name = node.attributes.get("material")
-                thickness = node.attributes.get(
-                    "thickness", None
-                )  # Optional, for 2D elements
+                tag = node.attributes.get("name")
+                tag = node.attributes.get("material")
+                thickness = node.attributes.get("thickness", None)
 
                 # Store the section information
-                section_map[section_name] = {
-                    "material": material_name,
+                section_map[tag] = {
+                    "material": tag,
                     "thickness": thickness,
                 }
 
@@ -163,7 +163,7 @@ def create_model(ast, verbose=False):
                 boundary_data = json.loads("["+line+"]") # line.split(",")
                 dofs = tuple(map(int, boundary_data[1:]))
             except:
-                print(line)
+                print("WARNING ", line, file=sys.stderr)
                 continue
             if len(dofs) > 1:
                 dofs = tuple(range(dofs[0], dofs[1]+1))
@@ -204,6 +204,7 @@ def create_model(ast, verbose=False):
         except Exception as e:
             print(block.attributes, e)
             continue
+
         if element_type == "hexahedron":
             for tag, *nodes in _iter_nodes(block):
                 if len(nodes) == 8:
