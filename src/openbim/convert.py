@@ -15,9 +15,15 @@ TYPES = {
 }
 
 class Converter:
-    def __init__(self, tables):
+    def __init__(self):
         self._log = []
         self._csi_names = {
+            # Abaqus
+            "Material": {
+                "material": {},
+                "uniaxial": {}
+            },
+            # CSI
             "Joint": {
                 "node": {
                     # 1:    1,
@@ -35,7 +41,9 @@ class Converter:
                 "transform":  0,
                 "element":    0,
                 "nDMaterial": 0,
-                "section":    0
+                "section":    0,
+                "material":   0,
+                "integration": 0
         }
 
         self._library = {
@@ -54,13 +62,13 @@ class Converter:
 
         return None
 
-    def define(self, csi_type, ops_type, csi_name, item=None)->int:
+    def define(self, csi_type, ops_type, csi_name=None, item=None)->int:
         if ops_type not in self._csi_names[csi_type]:
             self._csi_names[csi_type][ops_type] = {}
 
         if csi_name is None:
             self._ops_count[ops_type] += 1
-            return self._ops_count[ops_type] 
+            return self._ops_count[ops_type]
 
         if csi_name not in self._csi_names[csi_type][ops_type]:
             self._ops_count[ops_type] += 1
