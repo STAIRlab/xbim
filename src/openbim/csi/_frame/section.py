@@ -170,6 +170,83 @@ def section_geometry(csi, prop_01):
     if exterior is not None:
         return SectionGeometry(exterior, interior=interior)
 
+def section_mesh(csi, prop_01):
+    geometry = section_geometry(csi, prop_01)
+    exterior = geometry.exterior(plane=True)
+    interior = geometry.interior(plane=True)
+
+
+    import gmsh
+    import meshio
+    gmsh.initialize()
+    gmsh.model.add("section")
+    # Add exterior points
+    exterior_points = [gmsh.model.geo.addPoint(x, y, 0) for x, y in exterior]
+    exterior_loop = gmsh.model.geo.addCurveLoop([gmsh.model.geo.addSpline(exterior_points)])
+    
+    # Add interior points (holes)
+    interior_loops = []
+    for hole in interior:
+        hole_points = [gmsh.model.geo.addPoint(x, y, 0) for x, y in hole]
+        interior_loops.append(gmsh.model.geo.addCurveLoop([gmsh.model.geo.addSpline(hole_points)]))
+    
+    # Create plane surface with holes
+    surface = gmsh.model.geo.addPlaneSurface([exterior_loop] + interior_loops)
+    
+    # Synchronize to create the surface
+    gmsh.model.geo.synchronize()
+    
+    # Generate 2D mesh
+    gmsh.model.mesh.generate(2)
+    
+    # Extract mesh data
+    nodes = gmsh.model.mesh.getNodes()
+    elements = gmsh.model.mesh.getElements()
+    
+    # Convert to meshio format
+    mesh = meshio.Mesh(
+        points=nodes[1].reshape(-1, 3)[:, :2],  # Only take x, y coordinates
+        cells={"triangle": elements[2][0].reshape(-1, 3) - 1}  # Convert to 0-based indexing
+    )
+    
+    # Finalize gmsh
+    gmsh.finalize()
+    
+    return mesh
+    exterior_loop = gmsh.model.geo.addCurveLoop([
+        gmsh.model.geo.addSpline([gmsh.model.geo.addPoint(x, y, 0) for x, y in exterior])
+    ])
+    
+    # Add interior points (holes)
+    interior_loops = []
+    for hole in interior:
+        interior_loops.append(gmsh.model.geo.addCurveLoop([gmsh.model.geo.addSpline([gmsh.model.geo.addPoint(x, y, 0) for x, y in hole])]))
+    
+    # Create plane surface with holes
+    surface = gmsh.model.geo.addPlaneSurface([exterior_loop] + interior_loops)
+    
+    # Synchronize to create the surface
+    gmsh.model.geo.synchronize()
+    
+    # Generate 2D mesh
+    gmsh.model.mesh.generate(2)
+    
+    # Extract mesh data
+    nodes = gmsh.model.mesh.getNodes()
+    elements = gmsh.model.mesh.getElements()
+    
+    # Convert to meshio format
+    mesh = meshio.Mesh(
+        points=nodes[1].reshape(-1, 3)[:, :2],  # Only take x, y coordinates
+        cells={"triangle": elements[2][0].reshape(-1, 3) - 1}  # Convert to 0-based indexing
+    )
+    
+    # Finalize gmsh
+    gmsh.finalize()
+    
+    return mesh
+
+
 
 class _FrameSection:
     def __init__(self, geometry=None):
@@ -182,8 +259,8 @@ class _FrameSection:
         s._csi = csi
         return s
 
-    def geometry(self):
-        return [i for i in self._geometry]
+    # def geometry(self):
+    #     return [i for i in self._geometry]
 
     def add_to(self, model, conv, name=None):
         prop_01 = self._prop_01
@@ -271,7 +348,6 @@ class FrameQuadrature:
         pass 
 
     def geometry(self):
-        return self._geometry
         if self._geometry is not None:
             return [i for i in self._geometry]
 
