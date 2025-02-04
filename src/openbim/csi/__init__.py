@@ -143,7 +143,7 @@ def create_model(csi, types=None, verbose=False):
     ndf = sum(1 for v in csi["ACTIVE DEGREES OF FREEDOM"][0].values())
     ndm = sum(1 for k,v in csi["ACTIVE DEGREES OF FREEDOM"][0].items()
               if k[0] == "U")
-    if verbose:
+    if isinstance(verbose, int) and verbose > 3:
         import sys
         echo_file = sys.stdout
     else:
