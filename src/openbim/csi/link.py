@@ -111,30 +111,55 @@ def create_links(csi, model, library, config, conv):
             conv.log(UnimplementedInstance(f"Joint.DOFS", assign))
             continue
 
+        # Check whether there are any zero-length link elements
+        xi = np.array(model.nodeCoord(nodes[0]))
+        xj = np.array(model.nodeCoord(nodes[1]))
+
+        distance = np.linalg.norm(xj - xi)
+        zero_length_threshold = 1e-6
 
         #
-        # Get axes
+        # Get axes and orientation
         #
-        axes   = find_row(csi.get("LINK LOCAL AXES ASSIGNMENTS 1 - TYPICAL",[]),
-                          Link=link["Link"])
+        axes = find_row(csi.get("LINK LOCAL AXES ASSIGNMENTS 1 - TYPICAL", []),
+                        Link=link["Link"])
 
-        if not axes:
-            orient_vector = None
+        orient_vector = None  # Default value
 
-        elif axes["AdvanceAxes"]:
+        if axes:
+            if axes["AdvanceAxes"]:
+                # Handle advanced axes
+                axes_advance = find_row(csi.get("LINK LOCAL AXES ASSIGNMENTS 2 - ADVANCED", []),
+                                        Link=link["Link"])
+                
+                # Common advanced axes setup
+                orient_vector = (
+                    axes_advance["AxVecX"], axes_advance["AxVecY"], axes_advance["AxVecZ"],
+                    axes_advance["PlVecX"], axes_advance["PlVecY"], axes_advance["PlVecZ"],
+                )
 
-            axes = find_row(csi.get("LINK LOCAL AXES ASSIGNMENTS 2 - ADVANCED",[]),
-                          Link=link["Link"])
+                # Additional validation for non-zero-length links
+                if distance > zero_length_threshold:
+                    # Calculate node-based orientation
+                    orient_vector_from_nodes = _orient(xi, xj, axes["Angle"])
+                    
+                    # Calculate y-axis from advanced axes
+                    ax_vec = np.array([axes_advance["AxVecX"], axes_advance["AxVecY"], axes_advance["AxVecZ"]])
+                    pl_vec = np.array([axes_advance["PlVecX"], axes_advance["PlVecY"], axes_advance["PlVecZ"]])
+                    
+                    x_axis = ax_vec / np.linalg.norm(ax_vec)
+                    pl_projection = pl_vec - np.dot(pl_vec, x_axis) * x_axis
+                    y_axis_advanced = pl_projection / np.linalg.norm(pl_projection)
+                    
+                    # Validate and update orientation
+                    if np.allclose(y_axis_advanced, orient_vector_from_nodes, atol=1e-6):
+                        orient_vector = tuple(_orient(xi, xj, axes["Angle"]))
+                    else:
+                        raise ValueError(f"Orientation mismatch in link {link['Link']}")
 
-            orient_vector = (
-                    axes["AxVecX"], axes["AxVecY"], axes["AxVecZ"],
-                    axes["PlVecX"], axes["PlVecY"], axes["PlVecZ"],
-            )
-
-        else:
-            xi = np.array(model.nodeCoord(nodes[0]))
-            xj = np.array(model.nodeCoord(nodes[1]))
-            orient_vector = tuple(_orient(xi, xj, axes["Angle"]))
+            else:
+                # Handle typical axes (non-advanced)
+                orient_vector = tuple(_orient(xi, xj, axes["Angle"]))
 
 
         #
@@ -155,4 +180,3 @@ def create_links(csi, model, library, config, conv):
                       )
 
     return
-
