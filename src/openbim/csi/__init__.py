@@ -98,7 +98,7 @@ def create_materials(csi, model, conv):
 
 
     # 3) Shell
-    create_shell_sections(csi, model, library, conv)
+    create_shell_sections(csi, model, conv)
     return library
 
 
