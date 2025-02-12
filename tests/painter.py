@@ -1,13 +1,15 @@
-
+import numpy as np
 from openbim.csi import create_model, apply_loads, load, collect_outlines
 
 if __name__ == "__main__":
     import sys
 
-    with open(sys.argv[2], "r") as f:
+    model_file = "models/csi/painter/Painter_Street_v1.2.b2k"
+    with open(model_file, "r") as f:
         csi = load(f)
 
-
+    # This is an opensees.openseespy.Model class
+    # https://opensees.stairlab.io/user/manual/model/model_class.html
     model = create_model(csi, verbose=True)
 
     if sys.argv[1] == "-C":
@@ -15,11 +17,22 @@ if __name__ == "__main__":
         model.print("-json")
 
     elif sys.argv[1] == "-E":
-        # Eigen
+        # Eigen analysis
         import veux
+        if len(sys.argv) > 2:
+            mode = int(sys.argv[2])
+        else:
+            mode = 1
+        scale = 25
+
+        #
         model.constraints("Transformation")
-        model.eigen(2)
-        veux.serve(veux.render_mode(model, 1, 50.0, vertical=3))
+        e = model.eigen(mode)[-1]
+        print(f"period = {2*np.pi/np.sqrt(e)}")
+
+        # documentation on the canvas argument is here: https://veux.io/library/canvas.html
+        artist = veux.render_mode(model, mode, scale, vertical=3, canvas="plotly")
+        veux.serve(artist)
 
     elif sys.argv[1] == "-A":
         # Apply loads and analyze
@@ -28,8 +41,8 @@ if __name__ == "__main__":
         model.analyze(1)
 
     elif sys.argv[1][:2] == "-V":
-
         # Visualize
+
         import veux
         outlines = collect_outlines(csi, model.frame_tags)
 
