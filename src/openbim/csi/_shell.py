@@ -18,7 +18,8 @@ def create_shells(csi, model, library, conv):
         assign  = find_row(csi["AREA SECTION ASSIGNMENTS"],
                            Area=shell["Area"])
 
-        section = library["shell_sections"][assign["Section"]].index
+        section = conv.identify("ShellSection", "section", assign["Section"])
+        #library["shell_sections"][assign["Section"]].index
 
         nodes = tuple(v for k,v in shell.items() if RE["joint_key"].match(k))
 
