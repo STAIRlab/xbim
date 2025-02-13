@@ -1,4 +1,4 @@
-import re 
+import re
 from collections import defaultdict
 
 RE = {
@@ -31,6 +31,9 @@ class Converter:
                     # 3:    3
                 },
             },
+            "Shell": {"element": {}},
+            "Link":  {"element": {}},
+            "Frame": {"element": {}},
             "AnalSect": {
                 "section": {},
                 "integration": {}
