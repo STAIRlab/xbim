@@ -276,12 +276,15 @@ class _FrameSection:
         prop_01 = self._prop_01
         csi = self._csi
 
-        material = find_row(csi["MATERIAL PROPERTIES 02 - BASIC MECHANICAL PROPERTIES"],
+        material = find_row(csi.get("MATERIAL PROPERTIES 02 - BASIC MECHANICAL PROPERTIES", []),
                             Material=prop_01["Material"]
         )
 
+        if material is None:
+            print(prop_01)
+
         if "G12" in material:
-            model.section("FrameElastic", 
+            model.section("FrameElastic",
                             conv.define("AnalSect", "section", name), #self.index,
                             A  = prop_01["Area"],
                             Ay = prop_01["AS2"],
@@ -292,7 +295,7 @@ class _FrameSection:
                             E  = material["E1"],
                             G  = material["G12"]
             )
-    
+
     def cnn(self):
         pass 
 

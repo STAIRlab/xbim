@@ -132,7 +132,7 @@ def create_links(csi, model, library, config, conv):
                 # Handle advanced axes
                 axes_advance = find_row(csi.get("LINK LOCAL AXES ASSIGNMENTS 2 - ADVANCED", []),
                                         Link=link["Link"])
-                
+
                 # Common advanced axes setup
                 orient_vector = (
                     axes_advance["AxVecX"], axes_advance["AxVecY"], axes_advance["AxVecZ"],
@@ -168,15 +168,18 @@ def create_links(csi, model, library, config, conv):
         #
         # Create the link
         #
+        tag = conv.define("Link", "element", link["Link"])
         if orient_vector is not None:
-            model.element("TwoNodeLink", None,
+            model.element("TwoNodeLink",
+                      tag,
                       nodes,
                       mat=mats,
                       dir=dofs,
                       orient=orient_vector
                       )
         else:
-            model.element("TwoNodeLink", None,
+            model.element("TwoNodeLink",
+                      tag,
                       nodes,
                       mat=mats,
                       dir=dofs
