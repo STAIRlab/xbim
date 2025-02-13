@@ -34,6 +34,9 @@ class Converter:
             "AnalSect": {
                 "section": {},
                 "integration": {}
+            },
+            "ShellSection": {
+                "section": {}
             }
         }
         self._ops_count = {
