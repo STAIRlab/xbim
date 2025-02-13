@@ -6,6 +6,7 @@
 #
 import json
 import shlex
+import warnings
 
 CONSTANTS = {
         "Yes": True,
@@ -43,7 +44,7 @@ def load(file, append: dict=None):
 
     current_table = None
     current_item  = None
-    for line in file:
+    for line_no, line in enumerate(file):
         if "END TABLE DATA" in line:
             break
 
@@ -73,7 +74,20 @@ def load(file, append: dict=None):
                 current_table.append(current_item)
 
             continue_item = False
-            tokens = shlex.split(line)
+            try:
+                # Things are complicated by the fact we have to parse things like:
+                #    Key=Val'
+                # into "Key": "Val'"
+                #
+                lex = shlex.shlex(line, posix=True)
+                lex.quotes = '"'
+                lex.wordchars += "'"
+                lex.whitespace_split = True
+                tokens = list(lex)
+#               tokens = shlex.split(line)
+            except Exception as e:
+                raise ValueError(f"Error parsing line {line_no}: " + str(e))
+
             for i,kv in enumerate(tokens):
                 if kv == "_":
                     if i == len(tokens)-1:
