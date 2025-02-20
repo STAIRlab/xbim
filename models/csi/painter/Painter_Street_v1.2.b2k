@@ -914,9 +914,8 @@ TABLE:  "BRIDGE OBJECT DEFINITIONS 03 - SPANS 1 - GENERAL"
    BridgeObj=BOBJ1   SpanName="Span 2"   BridgeSect=BSEC1   Variation=No
  
 TABLE:  "BRIDGE OBJECT DEFINITIONS 06 - ABUTMENTS"
-   BridgeObj=BOBJ1   Location=Start   SupportName="Start Abutment"   BearingDir=Default--38   DiaphProp=DIAPHRAGM   DiaphLoc=Flush   SubType=Abutment   AbutProp=Abutment   SubElev=-6   HorizOff=0   BearProp=BBRG2   BearResProp=None _
-        BearElev=-6   BearAngle=0   BearAssign=Girder-by-Girder
-   BridgeObj=BOBJ1   Location=End   SupportName="Span 1"   BearingDir=Default--38   DiaphProp=None   SubType=Abutment   AbutProp=Abutment   SubElev=-6   HorizOff=0   BearProp=BBRG2   BearResProp=None   BearElev=-6   BearAngle=0   BearAssign=Girder-by-Girder
+  BridgeObj=BOBJ1   Location=Start   SupportName="Start Abutment"   BearingDir=Default--38   DiaphProp=None   SubType=Abutment   AbutProp=Abutment   SubElev=-6   HorizOff=0   BearProp=BBRG2   BearResProp=None   BearElev=-6   BearAngle=0   BearAssign=Girder-by-Girder
+  BridgeObj=BOBJ1   Location=End   SupportName="Span 1"   BearingDir=Default--38   DiaphProp=None   SubType=Abutment   AbutProp=Abutment   SubElev=-6   HorizOff=0   BearProp=BBRG2   BearResProp=None   BearElev=-6   BearAngle=0   BearAssign=Girder-by-Girder
  
 TABLE:  "BRIDGE OBJECT DEFINITIONS 07 - BENTS"
    BridgeObj=BOBJ1   SpanName="Span 1"   BentProp=BENT1   Continuous=Yes   SupportName="Span 2"   BearingDir=Default--38   BentElev=-6   HorizOff=0   DiaphBefore=DIAPHRAGM   MeshAtBent=Yes   BearProp1=BBRG2   BrResProp1=None   BearElev1=-6 _
