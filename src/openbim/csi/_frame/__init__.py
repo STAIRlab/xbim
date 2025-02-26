@@ -84,9 +84,9 @@ def create_frames(csi, model, library, config, conv):
         if "FRAME ADDED MASS ASSIGNMENTS" in csi:
             row = find_row(csi["FRAME ADDED MASS ASSIGNMENTS"],
                             Frame=frame["Frame"])
-            mass = row["MassPerLen"] if row else 0.0
+            additional_mass = row["MassPerLen"] if row else 0.0
         else:
-            mass = 0.0
+            additional_mass = 0.0
 
         #
         # Geometric transformation
@@ -116,7 +116,55 @@ def create_frames(csi, model, library, config, conv):
         #
         # Section
         #
-        assign  = find_row(csi["FRAME SECTION ASSIGNMENTS"], Frame=frame["Frame"])
+        assign = find_row(csi["FRAME SECTION ASSIGNMENTS"], Frame=frame["Frame"])
+        
+        sect_info = find_row(csi["FRAME SECTION PROPERTIES 01 - GENERAL"],
+                             SectionName=assign["AnalSect"])
+        if not sect_info:
+            conv.log(UnimplementedInstance("FrameSection.Unknown", assign))
+            continue
+
+        # ---------------------------------------------------------------------
+        # Handle prismatic vs nonprismatic to get mass/length
+        # ---------------------------------------------------------------------
+        is_nonprismatic = (sect_info["Shape"] == "Nonprismatic")
+
+        if not is_nonprismatic:
+            #   
+            # --- Prismatic section ---
+            #
+            A = sect_info["Area"]  # cross‐sectional area
+            mat_info = find_row(csi["MATERIAL PROPERTIES 02 - BASIC MECHANICAL PROPERTIES"],
+                                Material=sect_info["Material"])
+            rho = mat_info["UnitMass"]  # material density (mass / volume)
+
+            # self‐weight mass per length = area × density
+            self_weight_mpl = A * rho
+
+        else:
+            #
+            # --- Nonprismatic section ---
+            #
+            # look for total mass and total length in
+            # 
+
+            # total mass for the entire nonprismatic section
+            total_mass = sect_info["TotalMass"]      
+            if "NPSectLen" in assign:
+                total_length = assign["NPSectLen"]
+            else:
+                # handle the case where NPSectLen doesn't exist
+                total_length = np.linalg.norm(xj - xi)
+
+            if total_length < 1e-10:
+                conv.log(UnimplementedInstance("FrameSection.NonprismaticZeroLength", assign))
+                continue
+
+            # self‐weight mass per length = total mass / total length
+            self_weight_mpl = total_mass / total_length
+
+        # Combine any assigned mass per length with self‐weight mass per length
+        total_mass = self_weight_mpl + additional_mass
 
         # section = library["frame_sections"][assign["AnalSect"]] # conv.identify("AnalSect", "section", assign["AnalSect"]) #
 
@@ -129,7 +177,7 @@ def create_frames(csi, model, library, config, conv):
                           nodes,
                           section=section,
                           transform=transform-1,
-                          mass=mass
+                          mass=total_mass
             )
             tags[frame["Frame"]] = e
 
@@ -141,7 +189,7 @@ def create_frames(csi, model, library, config, conv):
                               nodes,
                               transform-1,
                               conv.identify("AnalSect", "integration", assign["AnalSect"]),
-                              mass=mass
+                              mass=total_mass
             )
             tags[frame["Frame"]] = e
 

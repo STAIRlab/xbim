@@ -287,7 +287,7 @@ class _FrameSection:
             model.section("FrameElastic",
                             conv.define("AnalSect", "section", name), #self.index,
                             A  = prop_01["Area"],
-                            Ay = prop_01["AS2"],
+                            Ay = prop_01["AS3"],
                             Az = prop_01["AS2"],
                             Iz = prop_01["I33"],
                             Iy = prop_01["I22"],

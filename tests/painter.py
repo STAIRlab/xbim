@@ -1,4 +1,6 @@
 import numpy as np
+import os
+import io
 from openbim.csi import create_model, apply_loads, load, collect_outlines
 
 if __name__ == "__main__":
