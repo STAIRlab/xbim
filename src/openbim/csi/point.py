@@ -55,11 +55,11 @@ def create_points(csi, model, library, config, conv):
             conv.log(UnimplementedInstance(f"Joint.Mass.CoordSys={node['CoordSys']}", node))
         model.mass(node_tag, tuple(mass))
 
-
+    
     for node in csi.get("JOINT ADDED MASS BY VOLUME ASSIGNMENTS", []):
         dens = find_row(csi.get("MATERIAL PROPERTIES 02 - BASIC MECHANICAL PROPERTIES",[]),
                         Material=node["Material"])["UnitMass"]
-        vols = [node[f"Vol{i+1}"] for i in range(1,ndm) if f"Vol{i+1}" in node]
+        vols = [node[f"Vol{i}"] for i in range(1,ndm+1) if f"Vol{i}" in node]
         vols = vols + [0.0]*(ndf-len(vols))
         mass = tuple(vol*dens for vol in vols)
         model.mass(node["Joint"], mass)
