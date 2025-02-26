@@ -18,9 +18,13 @@ def create_shells(csi, model, library, conv):
         assign  = find_row(csi["AREA SECTION ASSIGNMENTS"],
                            Area=shell["Area"])
 
-        section = library["shell_sections"][assign["Section"]].index
+        section = conv.identify("ShellSection", "section", assign["Section"])
+        #library["shell_sections"][assign["Section"]].index
 
-        nodes = tuple(v for k,v in shell.items() if RE["joint_key"].match(k))
+        nodes = tuple(
+                conv.identify("Joint", "node", v)
+                for k,v in shell.items() if RE["joint_key"].match(k)
+        )
 
         if len(nodes) == 4:
             type = TYPES["Shell"]["Elastic"]
@@ -28,6 +32,7 @@ def create_shells(csi, model, library, conv):
         elif len(nodes) == 3:
             type = "ShellNLDKGT"
 
-        model.element(type, None,
+        model.element(type,
+                      conv.define("Shell", "element", shell["Area"]),
                       nodes, section
         )

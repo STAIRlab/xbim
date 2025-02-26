@@ -16,36 +16,45 @@ class _Section:
         pass
 
 
-class _ShellSection(_Section):
-    def _create(self, csi, model, library, conv):
+def _create_shell_integration(csi, model, conv):
+    pass
 
-        section = find_row(csi["AREA SECTION PROPERTIES"],
-                           Section=self.name
-        )
+def _create_shell_section(csi, assign, model, conv):
 
-        if section is None:
-            print(self.name)
+    section = find_row(csi["AREA SECTION PROPERTIES"],
+                        Section=assign["Section"]
+    )
 
-        material = find_row(csi["MATERIAL PROPERTIES 01 - GENERAL"],
-                            Material=section["Material"]
-        )
+    if section is None:
+        # TODO: log
+        print(assign["Section"])
 
-        material = find_row(csi["MATERIAL PROPERTIES 02 - BASIC MECHANICAL PROPERTIES"],
-                            Material=section["Material"]
-        )
-        model.section("ElasticMembranePlateSection", self.index,
-                      material["E1"],  # E
-                      material["G12"]/(2*material["E1"]) - 1, # nu
-                      section["Thickness"],
-                      material["UnitMass"]
-        )
-        self.integration.append(self.index)
+    tag = conv.define("ShellSection", "section", assign["Section"])
+
+    material = find_row(csi["MATERIAL PROPERTIES 01 - GENERAL"],
+                        Material=section["Material"]
+    )
+
+    material = find_row(csi["MATERIAL PROPERTIES 02 - BASIC MECHANICAL PROPERTIES"],
+                        Material=section["Material"]
+    )
+    model.section("ElasticShell", tag,
+                    material["E1"],  # E
+                    material["G12"]/(2*material["E1"]) - 1, # nu
+                    section["Thickness"],
+                    material["UnitMass"]
+    )
+    # self.integration.append(self.index)
+    return tag
 
 
 def create_shell_sections(csi, model, conv):
     tag = 0
     for assign in csi.get("AREA SECTION ASSIGNMENTS", []):
-        if assign["Section"] not in library["shell_sections"]:
-            library["shell_sections"][assign["Section"]] = \
-              _ShellSection(assign["Section"], csi, tag, model, conv)
-            tag += len(library["shell_sections"][assign["Section"]].integration)
+        if not conv.identify("ShellSection", "section",  assign["Section"]):
+
+            if not _create_shell_section(csi, assign, model, conv):
+                warnings.warn(f"Section {assign['Section']} not found")
+                continue
+            # tag += len(library["shell_sections"][assign["Section"]].integration)
+

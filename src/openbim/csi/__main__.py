@@ -1,3 +1,4 @@
+import math
 from openbim.csi import create_model, apply_loads, load, collect_outlines
 
 if __name__ == "__main__":
@@ -20,8 +21,14 @@ if __name__ == "__main__":
         # Eigen
         import veux
         model.constraints("Transformation")
-        model.eigen(2)
-        veux.serve(veux.render_mode(model, 1, 50.0, vertical=3))
+        if len(sys.argv) > 3:
+            mode = int(sys.argv[3])
+        else:
+            mode = 1
+        scale = 100
+        e = model.eigen(mode)[-1]
+        print(f"period = {2*math.pi/math.sqrt(e)}")
+        veux.serve(veux.render_mode(model, mode, scale, vertical=3))
 
     elif sys.argv[1] == "-A":
         # Apply loads and analyze
@@ -34,12 +41,14 @@ if __name__ == "__main__":
         import veux
         outlines = collect_outlines(csi, model.frame_tags)
 
-        artist = veux.render(model, canvas="gltf", vertical=3,
-                    reference={"frame.surface", "frame.axes"},
+        artist = veux.create_artist(model, canvas="gltf", vertical=3,
                     model_config={
                         "frame_outlines": outlines
                     }
         )
+        artist.draw_outlines()
+        artist.draw_surfaces()
+
 
         if sys.argv[1] == "-Vo":
             artist.save(sys.argv[3])

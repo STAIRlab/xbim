@@ -39,7 +39,8 @@ def create_frame_sections(csi, model, conv):
                 continue
     
             if (s := _create_integration(csi, sect, model, conv)) is not None:
-                continue 
+                continue
+
             assert False, sect
             conv.log(UnimplementedInstance(f"FrameSection.Shape={sect['Shape']}"))
     return
@@ -113,6 +114,15 @@ def section_geometry(csi, prop_01):
         exterior = np.array([
             [np.sin(x)*r, np.cos(x)*r] for x in np.linspace(0, np.pi*2, 40)
         ])
+    elif prop_01["Shape"] == "Rectangular":
+        # TODO: Check if 2/3 axes are correct
+        exterior = np.array([
+            [ prop_01["t2"]/2,   prop_01["t3"]/2],
+            [ prop_01["t2"]/2,  -prop_01["t3"]/2],
+            [-prop_01["t2"]/2,  -prop_01["t3"]/2],
+            [-prop_01["t2"]/2,   prop_01["t3"]/2],
+            [ prop_01["t2"]/2,   prop_01["t3"]/2],
+        ]) + np.array([prop_01.get("CGOffset2",0), prop_01.get("CGOffset3", 0)])
 
     elif prop_01["Shape"] == "SD Section":
         prop_sd = find_row(csi.get("SECTION DESIGNER PROPERTIES 01 - GENERAL", []), SectionName=name)
@@ -266,12 +276,15 @@ class _FrameSection:
         prop_01 = self._prop_01
         csi = self._csi
 
-        material = find_row(csi["MATERIAL PROPERTIES 02 - BASIC MECHANICAL PROPERTIES"],
+        material = find_row(csi.get("MATERIAL PROPERTIES 02 - BASIC MECHANICAL PROPERTIES", []),
                             Material=prop_01["Material"]
         )
 
+        if material is None:
+            print(prop_01)
+
         if "G12" in material:
-            model.section("FrameElastic", 
+            model.section("FrameElastic",
                             conv.define("AnalSect", "section", name), #self.index,
                             A  = prop_01["Area"],
                             Ay = prop_01["AS3"],
@@ -282,7 +295,7 @@ class _FrameSection:
                             E  = material["E1"],
                             G  = material["G12"]
             )
-    
+
     def cnn(self):
         pass 
 

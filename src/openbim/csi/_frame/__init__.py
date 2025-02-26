@@ -170,9 +170,10 @@ def create_frames(csi, model, library, config, conv):
 
         if ("SectionType" not in assign) or (assign["SectionType"] != "Nonprismatic") or \
            assign["NPSectType"] == "Advanced":
-            
+
             section = conv.identify("AnalSect", "section", assign["AnalSect"])
-            e = model.element("PrismFrame", None,
+            e = model.element("PrismFrame",
+                          conv.define("Frame", "element", frame["Frame"]),
                           nodes,
                           section=section,
                           transform=transform-1,
@@ -184,7 +185,7 @@ def create_frames(csi, model, library, config, conv):
         elif assign["NPSectType"] == "Default":
             # Non-prismatic sections
             e = model.element("ForceFrame",
-                              None,
+                              conv.define("Frame", "element", frame["Frame"]),
                               nodes,
                               transform-1,
                               conv.identify("AnalSect", "integration", assign["AnalSect"]),

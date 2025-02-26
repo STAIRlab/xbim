@@ -5,6 +5,7 @@
 #===----------------------------------------------------------------------===#
 #
 import numpy as np
+import warnings
 from .utility import UnimplementedInstance, find_row, find_rows
 from .handler import Handler
 
@@ -131,7 +132,7 @@ def create_links(csi, model, library, config, conv):
                 # Handle advanced axes
                 axes_advance = find_row(csi.get("LINK LOCAL AXES ASSIGNMENTS 2 - ADVANCED", []),
                                         Link=link["Link"])
-                
+
                 # Common advanced axes setup
                 orient_vector = (
                     axes_advance["AxVecX"], axes_advance["AxVecY"], axes_advance["AxVecZ"],
@@ -142,20 +143,22 @@ def create_links(csi, model, library, config, conv):
                 if distance > zero_length_threshold:
                     # Calculate node-based orientation
                     orient_vector_from_nodes = _orient(xi, xj, axes["Angle"])
-                    
+
                     # Calculate y-axis from advanced axes
                     ax_vec = np.array([axes_advance["AxVecX"], axes_advance["AxVecY"], axes_advance["AxVecZ"]])
                     pl_vec = np.array([axes_advance["PlVecX"], axes_advance["PlVecY"], axes_advance["PlVecZ"]])
-                    
+
                     x_axis = ax_vec / np.linalg.norm(ax_vec)
                     pl_projection = pl_vec - np.dot(pl_vec, x_axis) * x_axis
                     y_axis_advanced = pl_projection / np.linalg.norm(pl_projection)
-                    
+
                     # Validate and update orientation
                     if np.allclose(y_axis_advanced, orient_vector_from_nodes, atol=1e-6):
                         orient_vector = tuple(_orient(xi, xj, axes["Angle"]))
                     else:
-                        raise ValueError(f"Orientation mismatch in link {link['Link']}")
+                        orient_vector = tuple(_orient(xi, xj, axes["Angle"]))
+                        warnings.warn(f"Orientation mismatch in link {link['Link']}")
+#                       raise ValueError(f"Orientation mismatch in link {link['Link']}")
 
             else:
                 # Handle typical axes (non-advanced)
@@ -165,15 +168,18 @@ def create_links(csi, model, library, config, conv):
         #
         # Create the link
         #
+        tag = conv.define("Link", "element", link["Link"])
         if orient_vector is not None:
-            model.element("TwoNodeLink", None,
+            model.element("TwoNodeLink",
+                      tag,
                       nodes,
                       mat=mats,
                       dir=dofs,
                       orient=orient_vector
                       )
         else:
-            model.element("TwoNodeLink", None,
+            model.element("TwoNodeLink",
+                      tag,
                       nodes,
                       mat=mats,
                       dir=dofs
