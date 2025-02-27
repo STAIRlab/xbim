@@ -1,6 +1,6 @@
 [project]
 name = "openbim"
-version = "0.0.3"
+version = "0.0.4"
 license = {file = "LICENSE.txt"}
 authors = [
   {name="Wensley Rushing", email="50180846+wensley-rushing@users.noreply.github.com"},
