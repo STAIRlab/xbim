@@ -1,4 +1,0 @@
-opensees
-gmsh
-lark
-ifcopenshell
