@@ -1,9 +1,10 @@
 [project]
-name = "openbim"
-version = "0.0.4"
+name = "xbim"
+version = "0.0.0"
 license = {file = "LICENSE.txt"}
 authors = [
-  {name="Wensley Rushing", email="50180846+wensley-rushing@users.noreply.github.com"},
+  {name="Issac Pang", email="101420268+issacpang@users.noreply.github.com"},
+  {name="Claudio M. Perez", email="50180406+claudioperez@users.noreply.github.com"}
 ]
 
 description="Structure information modeling."
@@ -51,7 +52,8 @@ classifiers = [
 ]
 
 [project.urls]
-Repository = "https://github.com/wensley-rushing/openbim"
+Repository = "https://github.com/STAIRLab/openbim"
+Home = "https://gallery.stairlab.io"
 
 [project.scripts]
 openbim = "openbim.__main__:main"
