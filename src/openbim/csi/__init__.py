@@ -7,7 +7,7 @@
 # Certain operations are loosley adapted from:
 #    https://github.com/XunXun-Zhou/Sap2OpenSees/blob/main/STO_ver1.0.py
 #
-
+#
 import numpy as np
 from ..convert import Converter
 from .parse import load
@@ -57,7 +57,7 @@ def create_materials(csi, model, conv):
             damp  = link["TransCE"]
 
         # TODO: use damp
-        model.eval(f"uniaxialMaterial Elastic {mat_total} {stiff}\n")
+        model.eval(f"material ElasticIsotropic {mat_total} {stiff} 0.3\n")
 
         dof = link["DOF"]
         library["link_materials"][name][dof] = mat_total
