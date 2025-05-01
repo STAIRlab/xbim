@@ -8,6 +8,7 @@ import re
 import sys
 import json
 import warnings
+import numpy as np
 from openbim.convert import Converter
 import opensees.openseespy as ops
 
@@ -89,12 +90,28 @@ abaqus_to_meshio_type = {
 
 meshio_to_abaqus_type = {v: k for k, v in abaqus_to_meshio_type.items()}
 
-def _iter_nodes(block):
-    for line in block.data:
-        if line[-1] == ",":
-            line = line[:-1]
-        yield map(int, re.split(",\\W*", line.strip())) # line.split(","))
-
+def _iter_nodes(block, n=None):
+    if n is None:
+        for line in block.data:
+            if line[-1] == ",":
+                line = line[:-1]
+            yield map(int, re.split(",\\W*", line.strip())) # line.split(","))
+    else:
+        lines = iter(block.data)
+        nodes = []
+        while True:
+            if len(nodes) == n+1:
+                yield tuple(nodes)
+                nodes = []
+            try:
+                line = next(lines)
+            except StopIteration:
+                if len(nodes) > 0:
+                    yield tuple(nodes)
+                break
+            if line[-1] == ",":
+                line = line[:-1]
+            nodes.extend(map(int, re.split(",\\W*", line.strip())))
 
 def _create_sections(ast, model, conv):
 
@@ -116,19 +133,19 @@ def _create_sections(ast, model, conv):
 def create_model(ast, verbose=False, mode=None):
     if mode is None:
         mode = "simulate"
-    
+
     part = ast
     for i,node in enumerate(ast.find_all("Part")):
-        if len(node.children) == 0: # or i != 2:
+        if len(node.children) == 0 or i != 2:
             continue
         part = node
         break
-    
+
     model, conv = _create_part(part, verbose=verbose, mode=mode)
 
 
     # Boundaries
-    _create_boundaries(ast, model, conv)
+#   _create_boundaries(ast, model, conv)
 
     return model
 
@@ -207,7 +224,10 @@ def _create_part(ast, verbose=False, mode=None):
             if child.keyword == "Elastic":
                 properties = child.data[0].split(",")
                 E = float(properties[0])
-                nu = float(properties[1])
+                try:
+                    nu = float(properties[1])
+                except:
+                    pass
                 #                   model.uniaxialMaterial('Elastic', material_name, E)
 
             elif child.keyword == "Plastic":
@@ -247,8 +267,12 @@ def _create_part(ast, verbose=False, mode=None):
                 warnings.warn("JOHNSON COOK hardening not implemented")
                 model.material("ElasticIsotropic", tag, E, nu)
 
-        elif E is not None and nu is not None:
-            model.material("ElasticIsotropic", tag, E, nu)
+        elif E is not None:
+            if nu is not None:
+                model.material("ElasticIsotropic", tag, E, nu)
+            else:
+                assert E is not None
+                model.uniaxialMaterial("Elastic", tag, E)
 
     if False:
         _create_sections(ast, model, conv)
@@ -262,16 +286,25 @@ def _create_part(ast, verbose=False, mode=None):
             coords = tuple(map(float, node_data[1:]))
             if len(coords) == 2:
                 coords = (coords[0], coords[1], 0.0)
+            elif len(coords) == 1:
+                coords = (coords[0], 0.0, 0.0)
             model.node(node_id, coords)
 
     for nodes in ast.find_all("Ngen"):
         nset = nodes.attributes.get("nset", None)
-        for line in nodes.data:
-            node_data = line.split(",")
-            node_id = int(node_data[0])
-            coords = tuple(map(float, node_data[1:]))
+
+        i_tag, j_tag = map(int, nodes.data[0].split(","))
+
+        i_x = model.nodeCoord(i_tag)
+        j_x = model.nodeCoord(j_tag)
+        n  = j_tag - i_tag - 1
+
+        for node_id, coords in zip(range(i_tag+1, j_tag), np.linspace(i_x, j_x, n)):
+            coords = tuple(coords.tolist())
             if len(coords) == 2:
                 coords = (coords[0], coords[1], 0.0)
+            elif len(coords) == 1:
+                coords = (coords[0], 0.0, 0.0)
             model.node(node_id, coords)
 
 
@@ -304,14 +337,12 @@ def _create_part(ast, verbose=False, mode=None):
         #
         if element_type == "hexahedron":
             for tag, *nodes in _iter_nodes(block):
-                if len(nodes) == 8:
-                    model.element("stdBrick", i, tuple(nodes), mat)
-                    i += 1
-                else:
-                    print("WARNING Brick with ", len(nodes), "nodes", file=sys.stderr)
+                assert len(nodes) == 8
+                model.element("stdBrick", i, tuple(nodes), mat)
+                i += 1
 
         elif element_type == "hexahedron20":
-            for tag, *nodes in _iter_nodes(block):
+            for tag, *nodes in _iter_nodes(block, 20):
                 model.element("stdBrick", i, tuple(nodes[:8]), mat)
                 i += 1
                 print("WARNING Brick with ", len(nodes), "nodes", file=sys.stderr)
@@ -329,7 +360,7 @@ def _create_part(ast, verbose=False, mode=None):
                 assert len(nodes) == 8
                 model.element("Quad", i, list(nodes), section=shell_section)
                 i += 1
-                
+
         elif element_type == "line":
             fsec = 1
 
@@ -341,7 +372,7 @@ def _create_part(ast, verbose=False, mode=None):
                     i += 1
                 else:
                     print("Frame with ", len(nodes), "nodes", file=sys.stderr)
-        
+
         elif element_type == "line3":
             fsec = 1
             model.section("FrameElastic", fsec, E=E, G=E*0.6, A=1, Iy=1, Iz=1, J=1)
