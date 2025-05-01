@@ -1,3 +1,9 @@
+#===----------------------------------------------------------------------===#
+#
+#         STAIRLab -- STructural Artificial Intelligence Laboratory
+#
+#===----------------------------------------------------------------------===#
+#
 import math
 from openbim.csi import create_model, apply_loads, load, collect_outlines
 
@@ -8,12 +14,18 @@ if __name__ == "__main__":
         csi = load(f)
 
 
-
-    if sys.argv[1] == "-C":
+    if sys.argv[1][1] == "C":
         # Convert
-        model = create_model(csi, verbose=False)
-        model.print("-json")
-        sys.exit()
+        if "tcl" in sys.argv[1]:
+            import xara 
+            model = xara.Model(ndm=3, ndf=6, echo_file=sys.stdout)
+            model = create_model(csi, model=model, verbose=False)
+            sys.exit()
+        else:
+            model = create_model(csi, verbose=False)
+            model.print("-json")
+            sys.exit()
+
 
     model = create_model(csi, verbose=True)
 
@@ -40,12 +52,12 @@ if __name__ == "__main__":
         # Visualize
         import veux
         outlines = collect_outlines(csi, model.frame_tags)
-
         artist = veux.create_artist(model, canvas="gltf", vertical=3,
                     model_config={
                         "frame_outlines": outlines
                     }
         )
+        # artist.draw_nodes()
         artist.draw_outlines()
         artist.draw_surfaces()
 

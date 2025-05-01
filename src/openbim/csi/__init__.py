@@ -12,18 +12,15 @@ import numpy as np
 from ..convert import Converter
 from .parse import load
 from .utility import UnimplementedInstance, print_log
-from ._frame import create_frames
-from ._shell import create_shells
+from ._frame import add_frames
+from ._shell import add_shells
+from ._solid import add_solids
 from .point import create_points
 from .link import create_links
-from ._section import (
-    create_shell_sections
-)
-from ._frame.section import (
-    create_frame_sections, 
-    section_geometry,
-    collect_geometry as collect_outlines
-)
+from ._section import add_shell_sections
+from ._frame.section import add_frame_sections
+from ._frame.outlines import collect_geometry as collect_outlines
+from .utility import find_row, find_rows
 
 CONFIG = {
     "Frame": {
@@ -34,6 +31,13 @@ CONFIG = {
 
 
 def create_materials(csi, model, conv):
+    "SD STRESS-STRAIN 01 - REBAR PARK"
+    "SD STRESS-STRAIN 02 - REBAR SIMPLE"
+    "SD STRESS-STRAIN 03 - STRUCTURAL STEEL"
+    "SD STRESS-STRAIN 04 - CONCRETE SIMPLE"
+    "SD STRESS-STRAIN 05 - CONCRETE MANDER UNCONFINED"
+    "SD STRESS-STRAIN 06 - CONCRETE MANDER CONFINED CIRCLE"
+    "SD STRESS-STRAIN 07 - CONCRETE MANDER CONFINED RECTANGLE"
     library = conv._library
 
     # 1) Material
@@ -43,10 +47,27 @@ def create_materials(csi, model, conv):
     #
     mat_total = 1
 
+    for mat in csi.get("MATERIAL PROPERTIES 01 - GENERAL", []):
+        if mat["SymType"] == "Isotropic":
+            pass
+        else:
+            conv.log(UnimplementedInstance("Material", mat))
+            continue
+        
+        p02 = find_row(csi.get("MATERIAL PROPERTIES 02 - BASIC MECHANICAL PROPERTIES", []), Material=mat["Material"])
+
+        name = mat["Material"]
+        model.nDMaterial(
+            "ElasticIsotropic",
+            conv.define("Material", "material", name),
+            p02["E1"],  # Young
+            p02["U12"], # Poisson
+        )
+
     for link in csi.get("LINK PROPERTY DEFINITIONS 02 - LINEAR", []):
         if link["Fixed"]:
             conv.log(UnimplementedInstance("Link.Fixed", link))
-            pass
+            continue
 
         name = link["Link"]
         if "R" in link["DOF"]:
@@ -64,6 +85,8 @@ def create_materials(csi, model, conv):
         mat_total += 1
 
     for damper in csi.get("LINK PROPERTY DEFINITIONS 04 - DAMPER", []):
+        # TODO: implement dampers
+        conv.log(UnimplementedInstance("Link.Damper", damper))
         continue
         name = damper["Link"]
         stiff = damper["TransK"]
@@ -94,11 +117,11 @@ def create_materials(csi, model, conv):
 
 
     # 2) Frame
-    create_frame_sections(csi, model, conv)
+    add_frame_sections(csi, model, conv)
 
 
     # 3) Shell
-    create_shell_sections(csi, model, conv)
+    add_shell_sections(csi, model, conv)
     return library
 
 
@@ -115,7 +138,7 @@ def apply_loads(csi, model):
 
 
 
-def create_model(csi, types=None, verbose=False):
+def create_model(csi, types=None, model=None, verbose=False):
     """
     Parameters
     ==========
@@ -143,12 +166,15 @@ def create_model(csi, types=None, verbose=False):
     ndf = sum(1 for v in csi["ACTIVE DEGREES OF FREEDOM"][0].values())
     ndm = sum(1 for k,v in csi["ACTIVE DEGREES OF FREEDOM"][0].items()
               if k[0] == "U")
+
     if isinstance(verbose, int) and verbose > 3:
         import sys
         echo_file = sys.stdout
     else:
         echo_file = None
-    model = ops.Model(ndm=ndm, ndf=ndf, echo_file=echo_file)
+
+    if model is None:
+        model = ops.Model(ndm=ndm, ndf=ndf, echo_file=echo_file)
 
     conv = Converter()
 
@@ -176,7 +202,6 @@ def create_model(csi, types=None, verbose=False):
     # Unimplemented objects
     for item in [
         "CONNECTIVITY - CABLE",
-        "CONNECTIVITY - SOLID",
         "CONNECTIVITY - TENDON"]:
         for elem in csi.get(item, []):
             conv.log(UnimplementedInstance(item, elem))
@@ -189,12 +214,17 @@ def create_model(csi, types=None, verbose=False):
     #
     # Create frames
     #
-    create_frames(csi, model, library, config, conv)
+    add_frames(csi, model, library, config, conv)
 
     #
     # Create shells
     #
-    create_shells(csi, model, library, conv)
+    add_shells(csi, model, conv)
+
+    #
+    #
+    #
+    add_solids(csi, model, config, conv)
 
     if verbose and len(conv._log) > 0:
         print_log(conv._log)

@@ -6,6 +6,7 @@
 #
 import sys
 import numpy as np
+import warnings
 
 from ..utility import UnimplementedInstance, find_row
 
@@ -59,7 +60,7 @@ def _orient(xi, xj, angle):
     return e3r / np.linalg.norm(e3r)
 
 
-def create_frames(csi, model, library, config, conv):
+def add_frames(csi, model, library, config, conv):
     ndm = config.get("ndm", 3)
     log = []
 
@@ -131,7 +132,7 @@ def create_frames(csi, model, library, config, conv):
 
         if not is_nonprismatic:
             #   
-            # --- Prismatic section ---
+            # Prismatic section
             #
             A = sect_info["Area"]  # cross‐sectional area
             mat_info = find_row(csi["MATERIAL PROPERTIES 02 - BASIC MECHANICAL PROPERTIES"],
@@ -143,13 +144,13 @@ def create_frames(csi, model, library, config, conv):
 
         else:
             #
-            # --- Nonprismatic section ---
+            # Nonprismatic section
             #
             # look for total mass and total length in
             # 
 
             # total mass for the entire nonprismatic section
-            total_mass = sect_info["TotalMass"]      
+            total_mass = sect_info.get("TotalMass", 0)
             if "NPSectLen" in assign:
                 total_length = assign["NPSectLen"]
             else:
@@ -168,10 +169,16 @@ def create_frames(csi, model, library, config, conv):
 
         # section = library["frame_sections"][assign["AnalSect"]] # conv.identify("AnalSect", "section", assign["AnalSect"]) #
 
+        # TODO: probably dont use "SectionType" from this table; it looks like its 
+        # superceded by "Shape" in Section Properties 01 table.
         if ("SectionType" not in assign) or (assign["SectionType"] != "Nonprismatic") or \
            assign["NPSectType"] == "Advanced":
 
             section = conv.identify("AnalSect", "section", assign["AnalSect"])
+            if section is None:
+                warnings.warn(f"No section found for {assign['AnalSect']}")
+                continue
+
             e = model.element("PrismFrame",
                           conv.define("Frame", "element", frame["Frame"]),
                           nodes,
@@ -182,13 +189,13 @@ def create_frames(csi, model, library, config, conv):
             tags[frame["Frame"]] = e
 
 
-        elif assign["NPSectType"] == "Default":
+        elif assign["NPSectType"] == "Default" and (integr := conv.identify("AnalSect", "integration", assign["AnalSect"])):
             # Non-prismatic sections
             e = model.element("ForceFrame",
                               conv.define("Frame", "element", frame["Frame"]),
                               nodes,
                               transform-1,
-                              conv.identify("AnalSect", "integration", assign["AnalSect"]),
+                              integr,
                               mass=total_mass
             )
             tags[frame["Frame"]] = e
