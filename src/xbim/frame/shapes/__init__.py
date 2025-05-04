@@ -1,104 +1,106 @@
-from ._basic import (
+from xsection.library import (
     WideFlange,
     Rectangle,
     HollowRectangle,
     Angle,
     Channel,
-    HollowRectangle
+    HollowRectangle,
+    from_aisc
 )
 
-def from_aisc(identifier: str, mesh:tuple=None, units=None, ndm=None, tag=None, **kwds):
-    if units is None:
-        import opensees.units.english as _units
-        units = _units
+if False:
+    def from_aisc(identifier: str, mesh:tuple=None, units=None, ndm=None, tag=None, **kwds):
+        if units is None:
+            import opensees.units.english as _units
+            units = _units
 
-    aisc_data = load_aisc(identifier, units=units)
+        aisc_data = load_aisc(identifier, units=units)
 
-    if aisc_data is None:
-        raise ValueError(f"Cannot find section with identifier {identifier}")
-
-
-    if identifier[0] == "W":
-        return WideFlange(d=aisc_data["d"],
-                          b=aisc_data["bf"],
-                          t=aisc_data["tf"],
-                          tw=aisc_data["tw"],
-                          k=aisc_data.get("k1", None),
-                          **kwds)
-
-    elif identifier[0] == "L":
-        return Angle(d=aisc_data["d"],
-                     b=aisc_data["b2"],
-                     t=aisc_data["t"])
-
-    elif identifier[0] == "C":
-        return Channel(d=aisc_data["d"],
-                       b=aisc_data["bf"],
-                       tf=aisc_data["tf"],
-                       tw=aisc_data["tw"])
-    elif identifier[:3] == "HSS":
-        return HollowRectangle(d=aisc_data["h/tdes"]*aisc_data["tdes"],
-                         b=aisc_data["b/tdes"]*aisc_data["tdes"],
-                         t=aisc_data["tdes"],
-        )
-    else:
-        raise ValueError(f"Cannot create section from identifier {identifier}")
+        if aisc_data is None:
+            raise ValueError(f"Cannot find section with identifier {identifier}")
 
 
+        if identifier[0] == "W":
+            return WideFlange(d=aisc_data["d"],
+                            b=aisc_data["bf"],
+                            t=aisc_data["tf"],
+                            tw=aisc_data["tw"],
+                            k=aisc_data.get("k1", None),
+                            **kwds)
 
-def load_aisc(SectionName, props="", units=None)->dict:
-    """Load cross section properties from AISC database.
+        elif identifier[0] == "L":
+            return Angle(d=aisc_data["d"],
+                        b=aisc_data["b2"],
+                        t=aisc_data["t"])
 
-    props:
-        A list of AISC properties, or one of the following:
-        - 'simple': `A`, `Ix`, `Zx`
-
-    """
-
-    if units is None:
-        import opensees.units.english as _units
-        units = _units
-
-    from shps.frame.shapes.aisc_imperial import imperial
-    SectData = imperial[SectionName.upper()]
-
-
-    if props == "simple":
-        props = ""
-        return
-
-    elif props:
-        props = props.replace(" ", "").split(",")
-        sectData = {k: v for k, v in SectData.items() if k in props}
-        if "I" in props:
-            sectData.update({"I": SectData["Ix"]})
-        return sectData
-
-    for k,v in list(SectData.items()):
-        try:
-            SectData[k] = float(v)
-        except:
-            continue
+        elif identifier[0] == "C":
+            return Channel(d=aisc_data["d"],
+                        b=aisc_data["bf"],
+                        tf=aisc_data["tf"],
+                        tw=aisc_data["tw"])
+        elif identifier[:3] == "HSS":
+            return HollowRectangle(d=aisc_data["h/tdes"]*aisc_data["tdes"],
+                                b=aisc_data["b/tdes"]*aisc_data["tdes"],
+                                t=aisc_data["tdes"],
+            )
+        else:
+            raise ValueError(f"Cannot create section from identifier {identifier}")
 
 
-    UNITS = [
-        ("d"  ,  units.inch ),
-        ("k1"  , units.inch ),
-        ("h/tdes", 1 ),
-        ("b/tdes", 1 ),
-        ("tdes", units.inch ),
-        ("bf" , units.inch ),
-        ("tw" , units.inch ),
-        ("tf" , units.inch ),
-        ("A"  , units.inch**2 ),
-        ("Ix" , units.inch**4 ),
-        ("Iy" , units.inch**4 ),
-    ]
 
-    return {
-        k: SectData[k]*scale
-        for k, scale in UNITS if k in SectData and isinstance(SectData[k], (float, int))
-    }
+    def load_aisc(SectionName, props="", units=None)->dict:
+        """Load cross section properties from AISC database.
+
+        props:
+            A list of AISC properties, or one of the following:
+            - 'simple': `A`, `Ix`, `Zx`
+
+        """
+
+        if units is None:
+            import opensees.units.english as _units
+            units = _units
+
+        from shps.frame.shapes.aisc_imperial import imperial
+        SectData = imperial[SectionName.upper()]
+
+
+        if props == "simple":
+            props = ""
+            return
+
+        elif props:
+            props = props.replace(" ", "").split(",")
+            sectData = {k: v for k, v in SectData.items() if k in props}
+            if "I" in props:
+                sectData.update({"I": SectData["Ix"]})
+            return sectData
+
+        for k,v in list(SectData.items()):
+            try:
+                SectData[k] = float(v)
+            except:
+                continue
+
+
+        UNITS = [
+            ("d"  ,  units.inch ),
+            ("k1"  , units.inch ),
+            ("h/tdes", 1 ),
+            ("b/tdes", 1 ),
+            ("tdes", units.inch ),
+            ("bf" , units.inch ),
+            ("tw" , units.inch ),
+            ("tf" , units.inch ),
+            ("A"  , units.inch**2 ),
+            ("Ix" , units.inch**4 ),
+            ("Iy" , units.inch**4 ),
+        ]
+
+        return {
+            k: SectData[k]*scale
+            for k, scale in UNITS if k in SectData and isinstance(SectData[k], (float, int))
+        }
 
 
 
