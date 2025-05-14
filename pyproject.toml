@@ -23,7 +23,8 @@ dependencies = [
   "veux",
   "meshio",
   "numpy",
-  "genson"
+  "genson",
+  "opensees"
 ]
 
 classifiers = [
