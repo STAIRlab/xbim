@@ -13,9 +13,9 @@ if __name__ == "__main__":
 
     file_name = sys.argv[2]
     lib = inp
-    obj = lib.parser.load(file_name)
+    obj = lib.parser.load(file_name, verbose=False)
 
-    model = lib.create_model(obj, verbose=True)
+    model = lib.create_model(obj, verbose=True, mode="visualize")
 
 
     if sys.argv[1] == "-C":

@@ -3,6 +3,9 @@
 #         STAIRLab -- STructural Artificial Intelligence Laboratory
 #
 #===----------------------------------------------------------------------===#
+#
+# cmp
+#
 """
 Assembly: Contains instances of parts but does not directly contain nodes or elements.
 Part: Contains nodes, elements, materials, and sections.
@@ -24,11 +27,15 @@ hierarchy = {
         "Initial Conditions"
     ],
 
-
     "Heading": [],  # General information, no children
     "Preprint": [],  # Print control, no children
-    "Part": ["Node", "Element", "Nset", "Elset", 
-             "Shell Section", "Beam Section", "Solid Section"
+    "Part": [
+        "Node", "Element", "Nset", "Elset", 
+        # Sections
+        "Shell Section", "Shell General Section", 
+        "Beam Section", "Beam General Section",
+        "Solid Section",
+        "Orientation", "Surface"
     ],
     "Node": [],  # Nodes typically do not have children
     "Element": [],
@@ -37,6 +44,8 @@ hierarchy = {
     "Shell Section": [],
     "Beam Section": [],
     "Beam General Section": [],
+    "Orientation": [],
+    "Surface": [],
 
     "Assembly": ["Instance", "Nset", "Elset", "Surface", "Contact"],
     "Instance": [],
@@ -45,33 +54,46 @@ hierarchy = {
     "Amplitude": [], # Amplitude seems to be a root node
 
     # Material properties
-    "Material": ["Density", "Elastic", "Plastic", "Permeability", 
-                 "Viscoelastic", 
-                 "Mohr Coulomb", "Mohr Coulomb Hardening",
-                 "Thermal Conductivity"],
+    "Material": [
+        "Density", "Elastic", "Plastic", "Permeability", 
+        "Viscoelastic", 
+        "Conductivity", "Expansion",
+        "Inelastic Heat Fraction",
+        "Rate Dependent",
+        "Specific Heat",
+        "Mohr Coulomb", "Mohr Coulomb Hardening",
+        "Thermal Conductivity"
+    ],
     "Density": [],  # Density has no children
     "Elastic": [],  # Elastic properties have no children
     "Plastic": [],  # Plastic properties have no children
+    "Conductivity": [],  # Conductivity has no children
+    "Expansion": [],
     "Viscoelastic": [],  # Additional material property
 
     "Initial Conditions": [],
 
     # STEP
-    "Step": ["Static", "Dynamic", "Heat Transfer",
-             "Boundary",
-             "Geostatic",
-             "Field",
-             "Soils",
-             "Dload", "Dsload", 
-             "Restart", "Output"],
+    "Step": [
+        "Static", "Dynamic", "Heat Transfer",
+        "Boundary",
+        "Geostatic",
+        "Field",
+        "Soils",
+        "Buckle",
+        "Dload", "Dsload", 
+        "Restart", 
+        "Output", "Node Output", "Element Output", "Contact Output"
+    ],
 
-    "Static": [],  # Static analysis step, no children
+    "Static": [], 
     "Dynamic": [],  # Dynamic analysis step, no children
     "Heat Transfer": [],  # Heat transfer analysis, no children
     "Boundary": [],  # Boundary conditions, no children
     "Dload": [],  # Distributed loads, no children
     "Cload": [],  # Distributed loads, no children
     "Dsload": [],
+    "Buckle": [],
     "Restart": [],  # Restart options, no children
 
     "Output": [],  # Output requests
@@ -182,7 +204,11 @@ def load(filename, verbose=False):
                 continue
 
             if line.startswith("*End"):
-                stack.pop()
+                # print(line, stack)
+                n = stack.pop()
+                if len(stack) == 0:
+                    # print(n)
+                    break
                 continue
 
             if line.startswith("*"):  # Identify keywords
@@ -231,7 +257,8 @@ def load(filename, verbose=False):
 
             elif current_node:
                 current_node.data.append(line)
-
+        if verbose:
+            print(root)
         return root
     
 

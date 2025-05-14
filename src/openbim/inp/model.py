@@ -4,10 +4,13 @@
 #
 #===----------------------------------------------------------------------===#
 #
-import opensees.openseespy as ops
-import json
+import re
 import sys
+import json
+import warnings
+import numpy as np
 from openbim.convert import Converter
+import opensees.openseespy as ops
 
 abaqus_to_meshio_type = {
     # trusses
@@ -76,7 +79,7 @@ abaqus_to_meshio_type = {
     # "TETRA14": "tetra14",
     #
     # "PYRAMID": "pyramid",
-    "C3D6": "wedge",
+    "C3D6":  "wedge",
     "C3D15": "wedge15",
     #
     # 4-node bilinear displacement and pore pressure
@@ -87,84 +90,71 @@ abaqus_to_meshio_type = {
 
 meshio_to_abaqus_type = {v: k for k, v in abaqus_to_meshio_type.items()}
 
-def _iter_nodes(block):
-    for line in block.data:
-        yield map(int, line.split(","))
+def _iter_nodes(block, n=None):
+    if n is None:
+        for line in block.data:
+            if line[-1] == ",":
+                line = line[:-1]
+            yield map(int, re.split(",\\W*", line.strip())) # line.split(","))
+    else:
+        lines = iter(block.data)
+        nodes = []
+        while True:
+            if len(nodes) == n+1:
+                yield tuple(nodes)
+                nodes = []
+            try:
+                line = next(lines)
+            except StopIteration:
+                if len(nodes) > 0:
+                    yield tuple(nodes)
+                break
+            if line[-1] == ",":
+                line = line[:-1]
+            nodes.extend(map(int, re.split(",\\W*", line.strip())))
 
-def create_model(ast, verbose=False):
-    # Create a new model
-    model = ops.Model(ndm=3, ndf=6)
-    conv = Converter()
+def _create_sections(ast, model, conv):
 
-    # Create Materials
+    for node in ast.find_all("Shell Section"):
+        els = node.attributes.get("elset", None)
+        tag = node.attributes.get("name")
+        mat = node.attributes.get("material")
+        thickness = node.attributes.get("thickness", None)
 
-    E = 29e3
-    nu = 0.2
-    mat = 1
-    fsec = 1
-    model.material("ElasticIsotropic", mat, E, nu)
-    #                                       secTag  E     nu     h    rho
-    model.section("ElasticMembranePlateSection", 1, E, 0.25, 1.175, 1.27)
-
-    model.section("FrameElastic", fsec, E=E, G=E*0.6, A=1, Iy=1, Iz=1, J=1)
-
-    model.geomTransf("Linear", 1, (0.0, 1.0, 0))
-
-    #
-
-    # Parse materials
-    if True:
-        # Dictionary to map material names/IDs
-        section_map = {}
-
-        for node in ast.find_all("Material"):
-            for child in node.children:
-                if child.keyword == "Elastic":
-                    tag = conv.define("Material", "material", node.attributes.get("name"))
-                    properties = child.data[0].split(",")
-                    E = float(properties[0])
-                    nu = float(properties[1])
-                    #                   model.uniaxialMaterial('Elastic', material_name, E)
-                    model.material("ElasticIsotropic", tag, E, nu)
-
-                elif child.keyword == "Plastic":
-                    continue
-                    tag = conv.define("Material", "material", node.attributes.get("name"))
-                    properties = child.data[0].split(",")
-                    E = float(properties[0])
-                    yield_strength = float(properties[1])
-                    model.uniaxialMaterial("Plastic", tag, E, yield_strength)
-
-                elif child.keyword == "Concrete":
-                    continue
-                    tag = conv.define("Material", "uniaxial", node.attributes.get("name"))
-                    properties = child.children[0].attributes.get("data").split(",")
-                    f_c = float(properties[0])  # Compressive strength
-                    f_t = float(properties[1])  # Tensile strength
-                    model.uniaxialMaterial("Concrete", tag, f_c, f_t)
+    for node in ast.find_all("Beam Section"):
+        elset = node.attributes.get("elset")
+        mat = node.attributes.get("material")
+        shape = node.attributes.get("section", None)
+        assert shape in {"RECT", "L", "T", "C", "I"}
+        thickness = node.attributes.get("thickness", None)
+        tag = conv.define("FrameSection", "FrameSection", elset)
 
 
-            if node.keyword == "Section":
-                tag = node.attributes.get("name")
-                tag = node.attributes.get("material")
-                thickness = node.attributes.get("thickness", None)
+def create_model(ast, verbose=False, mode=None):
+    if mode is None:
+        mode = "simulate"
 
-                # Store the section information
-                section_map[tag] = {
-                    "material": tag,
-                    "thickness": thickness,
-                }
+    part = ast
+    for i,node in enumerate(ast.find_all("Part")):
+        if len(node.children) == 0 or i != 2:
+            continue
+        part = node
+        break
 
-    for nodes in ast.find_all("Node"):
-        for line in nodes.data:
-            node_data = line.split(",")
-            node_id = int(node_data[0])
-            coords = tuple(map(float, node_data[1:]))
-            model.node(node_id, coords)
+    model, conv = _create_part(part, verbose=verbose, mode=mode)
 
+
+    # Boundaries
+#   _create_boundaries(ast, model, conv)
+
+    return model
+
+
+def _create_boundaries(ast, model, conv):
 
     for block in ast.find_all("Boundary"):
         for line in block.data:
+            print(line)
             try:
                 boundary_data = json.loads("["+line+"]") # line.split(",")
                 dofs = tuple(map(int, boundary_data[1:]))
@@ -179,9 +169,9 @@ def create_model(ast, verbose=False):
             except:
                 # its a set name
                 nodes = (
-                        int(i)
-                        for row in ast.find_attr("Nset", nset=boundary_data[0]).data
-                        for i in row.split(",")
+                    int(i)
+                    for row in ast.find_attr("Nset", nset=boundary_data[0]).data
+                    for i in row.split(",")
                 )
             nodes = list(nodes)
 
@@ -189,8 +179,136 @@ def create_model(ast, verbose=False):
                 for dof in dofs:
                     model.fix(node, dof=dof)
 
-    if False:
 
+def _create_part(ast, verbose=False, mode=None):
+    if mode is None:
+        mode = "simulate"
+
+    # Create a new model
+    model = ops.Model(ndm=3, ndf=6)
+    conv = Converter()
+
+    # Create Materials
+
+
+    if mode == "visualize":
+        # Create dummy materials to make the model work
+        E = 29e3
+        nu = 0.27
+        density = 1.27
+
+        mat = 1
+        fsec = 1
+        shell_section = 1
+        model.material("ElasticIsotropic", mat, E, nu)
+        model.section("ElasticShell",        1, E, nu, 1.175, density)
+        model.section("FrameElastic", fsec, E=E, G=E*0.6, A=1, Iy=1, Iz=1, J=1)
+
+        model.geomTransf("Linear", 1, (0.0, 1.0, 0))
+
+    #
+    # Parse materials
+    #
+    for node in ast.find_all("Material"):
+        density = 0.0
+        E = None
+        nu = None
+        Fy = None
+        Ep = None
+        hardening = None
+        for child in node.children:
+            if child.keyword == "Density":
+                density = float(child.data[0].split(",")[0])
+                continue
+
+            if child.keyword == "Elastic":
+                properties = child.data[0].split(",")
+                E = float(properties[0])
+                try:
+                    nu = float(properties[1])
+                except:
+                    pass
+                #                   model.uniaxialMaterial('Elastic', material_name, E)
+
+            elif child.keyword == "Plastic":
+                hardening = child.attributes.get("hardening", "isotropic")
+                properties = child.data[0].split(",")
+                if hardening == "isotropic":
+                    Fy = float(properties[0])
+                    Ep = float(properties[1])
+                elif hardening == "JOHNSON COOK":
+                    pass
+
+            elif child.keyword == "Concrete":
+                continue
+                tag = conv.define("Material", "uniaxial", node.attributes.get("name"))
+                properties = child.children[0].attributes.get("data").split(",")
+                f_c = float(properties[0])  # Compressive strength
+                f_t = float(properties[1])  # Tensile strength
+                model.uniaxialMaterial("Concrete", tag, f_c, f_t)
+
+
+        # Create the material
+        tag = conv.define("Material", "material", node.attributes.get("name"))
+        if Fy is not None:
+            assert E is not None
+            assert nu is not None
+
+            if hardening == "isotropic":
+                model.nDMaterial("J2Simplified", tag, 
+                                 E=E, nu=nu, 
+                                 Fy=Fy, 
+                                 Hiso=E,
+                                 Hkin=0,
+                                 density=density
+                )
+
+            elif hardening == "JOHNSON COOK":
+                warnings.warn("JOHNSON COOK hardening not implemented")
+                model.material("ElasticIsotropic", tag, E, nu)
+
+        elif E is not None:
+            if nu is not None:
+                model.material("ElasticIsotropic", tag, E, nu)
+            else:
+                assert E is not None
+                model.uniaxialMaterial("Elastic", tag, E)
+
+    if False:
+        _create_sections(ast, model, conv)
+
+
+    # Create nodes
+    for nodes in ast.find_all("Node"):
+        for line in nodes.data:
+            node_data = line.split(",")
+            node_id = int(node_data[0])
+            coords = tuple(map(float, node_data[1:]))
+            if len(coords) == 2:
+                coords = (coords[0], coords[1], 0.0)
+            elif len(coords) == 1:
+                coords = (coords[0], 0.0, 0.0)
+            model.node(node_id, coords)
+
+    for nodes in ast.find_all("Ngen"):
+        nset = nodes.attributes.get("nset", None)
+
+        i_tag, j_tag = map(int, nodes.data[0].split(","))
+
+        i_x = model.nodeCoord(i_tag)
+        j_x = model.nodeCoord(j_tag)
+        n  = j_tag - i_tag - 1
+
+        for node_id, coords in zip(range(i_tag+1, j_tag), np.linspace(i_x, j_x, n)):
+            coords = tuple(coords.tolist())
+            if len(coords) == 2:
+                coords = (coords[0], coords[1], 0.0)
+            elif len(coords) == 1:
+                coords = (coords[0], 0.0, 0.0)
+            model.node(node_id, coords)
+
+
+    if False:
         if node.keyword == "Load":
             for child in node.children:
                 load_data = child.attributes.get("data").split(",")
@@ -209,24 +327,43 @@ def create_model(ast, verbose=False):
             print("WARNING ", block.attributes, e, file=sys.stderr)
             continue
 
+        elset = block.attributes.get("elset", None)
+        section = None
+        if elset is not None:
+            section = None #conv.identify("FrameSection", "FrameSection", elset)
+
+        #
+        # Create the element
+        #
         if element_type == "hexahedron":
             for tag, *nodes in _iter_nodes(block):
-                if len(nodes) == 8:
-                    model.element("stdBrick", i, tuple(nodes), mat)
-                    i += 1
-                else:
-                    print("WARNING Brick with ", len(nodes), "nodes", file=sys.stderr)
+                assert len(nodes) == 8
+                model.element("stdBrick", i, tuple(nodes), mat)
+                i += 1
+
+        elif element_type == "hexahedron20":
+            for tag, *nodes in _iter_nodes(block, 20):
+                model.element("stdBrick", i, tuple(nodes[:8]), mat)
+                i += 1
+                print("WARNING Brick with ", len(nodes), "nodes", file=sys.stderr)
 
         elif element_type == "quad":
             for tag, *nodes in _iter_nodes(block):
                 if len(nodes) == 4:
-                    model.element("ShellMITC4", i, tuple(nodes), mat, 12.0)
+                    model.element("ShellMITC4", i, list(nodes), section=shell_section)
                     i += 1
                 else:
                     print("WARNING Quad with ", len(nodes), "nodes", file=sys.stderr)
 
+        elif element_type == "quad8":
+            for tag, *nodes in _iter_nodes(block):
+                assert len(nodes) == 8
+                model.element("Quad", i, list(nodes), section=shell_section)
+                i += 1
+
         elif element_type == "line":
             fsec = 1
+
             model.section("FrameElastic", fsec, E=E, G=E*0.6, A=1, Iy=1, Iz=1, J=1)
             model.geomTransf("Linear", 1, (0.0, 1.0, 0))
             for tag, *nodes in _iter_nodes(block):
@@ -236,62 +373,34 @@ def create_model(ast, verbose=False):
                 else:
                     print("Frame with ", len(nodes), "nodes", file=sys.stderr)
 
+        elif element_type == "line3":
+            fsec = 1
+            model.section("FrameElastic", fsec, E=E, G=E*0.6, A=1, Iy=1, Iz=1, J=1)
+            model.geomTransf("Linear", 1, (0.0, 1.0, 0))
+            for tag, *nodes in _iter_nodes(block):
+                model.element("ExactFrame", i, list(nodes), section=fsec, transform=1)
+                i += 1
+
         elif element_type == "triangle":
             for tag, *nodes in _iter_nodes(block):
                 if len(nodes) == 3:
-                    model.element("ShellDKGT", i, tuple(nodes), mat, 12.0)
+                    model.element("ShellDKGT", i, tuple(nodes), shell_section)
                     i += 1
                 else:
                     print("Shell with ", len(nodes), "nodes")
+
+        elif element_type in {"tetra", "tetra4"}:
+            for tag, *nodes in _iter_nodes(block):
+                assert len(nodes) == 4
+                model.element("FourNodeTetrahedron", i, tuple(nodes), mat)
+                i += 1
+
+        elif element_type == "tetra10":
+            for tag, *nodes in _iter_nodes(block):
+                assert len(nodes) == 10
+                model.element("TenNodeTetrahedron", i, tuple(nodes), mat)
+                i += 1
         else:
-            print(element_type)
+            print("WARNING unsupported element \"", element_type, "\"", file=sys.stderr)
 
-        if False:
-            for entry in block.data:
-                element_data = entry.split(",")
-                element_id   = int(element_data[0])
-                nodes = tuple(map(int, element_data[1:]))
-
-                # TODO: Extract material assignment
-                mat = 1
-                sec = 1
-                trn = 1
-
-                # Tetrahedral elements
-                if element_type == "C3D4":
-                    model.element("tetrahedron", element_id, nodes)
-
-                # BEAMS
-                elif element_type == "B31":
-                    model.element("PrismFrame", element_id, nodes)  # Linear 2-node beam
-
-                elif element_type == "B32":
-                    model.element("PrismFrame", element_id, nodes)  # Quadratic 3-node beam
-
-                elif element_type == "B33":
-                    model.element("PrismFrame", element_id, nodes)  # Linear 3-node beam
-
-                elif element_type == "B21":
-                    model.element("PrismFrame", element_id, nodes)  # 2D beam
-
-                elif element_type == "B22":
-                    # Quadratic 2-node beam
-                    model.element("PrismFrame", element_id, nodes, section=sec, transform=trn)
-
-
-                # SOLID
-                elif element_type == "C3D8":  # Hexahedral element
-                    model.element("brick", element_id, nodes, mat)
-
-                elif element_type == "C2D4":  # 2D quadrilateral element
-                    model.element("quad", element_id, nodes)
-
-                elif element_type == "C3D10":
-                    # Tetrahedral element with mid-side nodes
-                    model.element("tetrahedron", element_id, nodes)
-
-                else:
-                    print(
-                        f"Warning: Unrecognized element type {element_type} for element ID {element_id}."
-                    )
-    return model
+    return model, conv

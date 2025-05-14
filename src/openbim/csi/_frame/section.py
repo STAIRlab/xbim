@@ -3,6 +3,8 @@ import numpy as np
 import warnings
 from veux.frame import SectionGeometry
 
+_CIRCLE_DIVS = 40
+
 def _HatSO3(vec):
     """Construct a skew-symmetric matrix from a 3-vector."""
     return np.array([
@@ -37,7 +39,7 @@ def create_frame_sections(csi, model, conv):
 
             if (s:= _create_section(csi, sect, model, conv)) is not None:
                 continue
-    
+
             if (s := _create_integration(csi, sect, model, conv)) is not None:
                 continue
 
@@ -99,20 +101,23 @@ def collect_geometry(csi, elem_maps=None, conv=None):
 def section_geometry(csi, prop_01):
     if isinstance(prop_01, str):
         name = prop_01
-        prop_01 = find_row(csi.get("FRAME SECTION PROPERTIES 01 - GENERAL"), SectionName=name)
+        prop_01 = find_row(csi.get("FRAME SECTION PROPERTIES 01 - GENERAL",[]), SectionName=name)
+        if prop_01 is None:
+            prop_01 = find_row(csi.get("FRAME SECTION PROPERTIES - BRIDGE OBJECT FLAGS",[]), SectionName=name)
+            if prop_01 is None:
+                raise ValueError(f"Section {name} not found in either table.")
     else:
         name = prop_01["SectionName"]
 
     exterior = None
     interior = []
-
     if "Shape" not in prop_01:
         return 
 
     if prop_01["Shape"] == "Circle":
         r = prop_01["t3"]/2
         exterior = np.array([
-            [np.sin(x)*r, np.cos(x)*r] for x in np.linspace(0, np.pi*2, 40)
+            [np.sin(x)*r, np.cos(x)*r] for x in np.linspace(0, np.pi*2, _CIRCLE_DIVS)
         ])
     elif prop_01["Shape"] == "Rectangular":
         # TODO: Check if 2/3 axes are correct
@@ -131,7 +136,7 @@ def section_geometry(csi, prop_01):
             assert circle["Height"] == circle["Width"]
             r = circle["Height"]/2
             exterior = np.array([
-                [np.sin(x)*r, np.cos(x)*r] for x in np.linspace(0, np.pi*2, 40)
+                [np.sin(x)*r, np.cos(x)*r] for x in np.linspace(0, np.pi*2, _CIRCLE_DIVS)
             ])
 
         elif prop_sd["nPolygon"] > 0:
@@ -180,11 +185,23 @@ def section_geometry(csi, prop_01):
     if exterior is not None:
         return SectionGeometry(exterior, interior=interior)
 
-def section_mesh(csi, prop_01):
+
+
+
+def section_mesh(csi, prop_01, engine=None):
+
+    from shps.frame.mesh import sect2meshpy
+    shape = section_geometry(csi, prop_01)
+    if engine is None:
+        shape = (
+            shape.exterior(plane=True),
+            shape.interior(plane=True)
+        )
+        return sect2meshpy(shape, 0.5)
+
     geometry = section_geometry(csi, prop_01)
     exterior = geometry.exterior(plane=True)
     interior = geometry.interior(plane=True)
-
 
     import gmsh
     import meshio
@@ -345,7 +362,7 @@ class FrameQuadrature:
                             SectionName=row["EndSect"])
 
             if si["Shape"] == sj["Shape"] and si["Shape"] in {"Circle"}:
-                circumference = np.linspace(0, np.pi*2, 30)
+                circumference = np.linspace(0, np.pi*2, _CIRCLE_DIVS)
                 exteriors = np.array([
                     [[np.sin(x)*r, np.cos(x)*r] for x in circumference]
                     for r in np.linspace(si["t3"]/2, sj["t3"]/2, 2)

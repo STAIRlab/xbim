@@ -1,12 +1,18 @@
-# `openbim`
+
+<p align="center">
+  <a href="https://gallery.stairlab.io/">
+    <img src="https://veux.io/_static/images/stairlab_large.svg" alt="STAIRLab logo" width="200" height="165">
+  </a>
+</p>
+
+<h3 align="center">xbim</h3>
 
 
-IFC functionality is adapted in part from:
+<p align="center">
+  extended building information modeling
+  <br>
+  <a href="https://gallery.stairlab.io/"><strong>Explore the STAIRLab gallery »</strong></a>
+</p>
 
-- Maria Laura Leonardi, José Granja, Daniel V. Oliveira, Miguel Azenha, *Scalable BIM based open workflow for structural analysis of masonry building aggregates*, Computers & Structures, Volume 297, 2024, 107321, ISSN 0045-7949, https://doi.org/10.1016/j.compstruc.2024.107321.
-
-- https://github.com/wensley-rushing/OpenBIMtoFEM
 
 
-Use of the CSI API is adapted from:
-- https://github.com/wensley-rushing/E2O-SEAOC2020
