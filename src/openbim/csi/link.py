@@ -75,7 +75,7 @@ def create_links(csi, model, library, config, conv):
         assign = find_row(csi["LINK PROPERTY ASSIGNMENTS"],
                           Link=link["Link"])
 
-        if assign["LinkJoints"] == "SingleJoint":
+        if assign.get("LinkJoints", "") == "SingleJoint":
 
             props = find_row(csi["LINK PROPERTY DEFINITIONS 01 - GENERAL"],
                              Link=assign["LinkProp"])
@@ -97,8 +97,8 @@ def create_links(csi, model, library, config, conv):
 
             continue
 
-        elif assign["LinkJoints"] != "TwoJoint":
-            conv.log(UnimplementedInstance(f"Joint.{assign['LinkJoints']}", assign))
+        elif assign.get("LinkJoints", "") != "TwoJoint":
+            conv.log(UnimplementedInstance(f"Joint.{assign.get('LinkJoints','')}", assign))
             continue
 
         #
