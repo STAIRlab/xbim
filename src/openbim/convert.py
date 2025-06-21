@@ -34,6 +34,7 @@ class Converter:
             "Shell": {"element": {}},
             "Link":  {"element": {}},
             "Frame": {"element": {}},
+            "Solid": {"element": {}},
             "AnalSect": {
                 "section": {},
                 "integration": {}
