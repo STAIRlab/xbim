@@ -19,6 +19,7 @@ class _Section:
 def _create_shell_integration(csi, model, conv):
     pass
 
+
 def _create_shell_section(csi, assign, model, conv):
 
     section = find_row(csi["AREA SECTION PROPERTIES"],
@@ -48,9 +49,11 @@ def _create_shell_section(csi, assign, model, conv):
     return tag
 
 
-def create_shell_sections(csi, model, conv):
-    tag = 0
+def add_shell_sections(csi, model, conv):
     for assign in csi.get("AREA SECTION ASSIGNMENTS", []):
+        # if "Section" not in assign:
+        #     print(assign)
+        #     continue
         if not conv.identify("ShellSection", "section",  assign["Section"]):
 
             if not _create_shell_section(csi, assign, model, conv):
