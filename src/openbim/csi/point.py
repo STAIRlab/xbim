@@ -70,14 +70,14 @@ def create_points(csi, model, library, config, conv):
     used.add("JOINT ADDED MASS BY VOLUME ASSIGNMENTS")
 
 
-    log.extend( _apply_constraints(csi, model, library, config) )
+    log.extend( _apply_constraints(csi, model, conv) )
 
     used.add("JOINT CONSTRAINT ASSIGNMENTS")
 
     return log
 
 
-def _apply_constraints(sap, model, library, config):
+def _apply_constraints(sap, model, conv):
     log = []
 
     # The format of body dictionary is {'node number':'constraint name'}
@@ -108,7 +108,9 @@ def _apply_constraints(sap, model, library, config):
             else:
                 # First write the nodes in nodes to the body file
                 for le in range(len(nodes)-1):
-                    model.eval(f"rigidLink beam {nodes[0]} {nodes[le + 1]}\n")
+                    ni = conv.identify("Joint", "node", nodes[0])
+                    nj = conv.identify("Joint", "node", nodes[le + 1])
+                    model.eval(f"rigidLink beam {ni} {nj}\n")
                 # Restore nodes and save the node that returns False.
                 nodes = []
                 nodes.append(node)
