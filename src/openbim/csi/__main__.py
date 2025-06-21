@@ -21,6 +21,7 @@ if __name__ == "__main__":
             model = xara.Model(ndm=3, ndf=6, echo_file=sys.stdout)
             model = create_model(csi, model=model, verbose=False)
             sys.exit()
+
         else:
             model = create_model(csi, verbose=False)
             model.print("-json")
@@ -42,10 +43,12 @@ if __name__ == "__main__":
         print(f"period = {2*math.pi/math.sqrt(e)}")
         veux.serve(veux.render_mode(model, mode, scale, vertical=3))
 
+
     elif sys.argv[1] == "-A":
         # Apply loads and analyze
         apply_loads(csi, model)
         model.analyze(1)
+
 
     elif sys.argv[1][:2] == "-V":
 

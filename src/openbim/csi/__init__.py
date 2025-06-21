@@ -186,8 +186,8 @@ def create_model(csi, types=None, model=None, verbose=False):
 #   else:
 #       dofs = dofs + ["R3"]
 
-    config["ndm"] = ndm
-    config["ndf"] = ndf
+    config["ndm"]  = ndm
+    config["ndf"]  = ndf
     config["dofs"] = dofs
 
     #
@@ -233,6 +233,7 @@ def create_model(csi, types=None, model=None, verbose=False):
         for table in csi:
             if table not in used:
                 print(f"\t{table}", file=sys.stderr)
+
 
     model.frame_tags = library.get("frame_tags", {})
     return model
