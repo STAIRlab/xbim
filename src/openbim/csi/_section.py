@@ -26,6 +26,7 @@ def _create_shell_section(csi, assign, model, conv):
                         Section=assign["Section"]
     )
 
+    # assert section is not None, f"Section {assign['Section']} not found in AREA SECTION PROPERTIES"
     if section is None:
         # TODO: log
         print(assign["Section"])
