@@ -115,7 +115,7 @@ TABLE:  "FRAME SECTION PROPERTIES 05 - NONPRISMATIC"
    SectionName=VAR2   NumSegments=12   SegmentNum=10   StartSect=BRD2   EndSect=BRD2   LengthType=Variable   VarLength=0.0833333333333335   EI33Var=Parabolic   EI22Var=Linear
    SectionName=VAR2   NumSegments=12   SegmentNum=11   StartSect=BRD2   EndSect=BRD2   LengthType=Variable   VarLength=0.083333333333333   EI33Var=Parabolic   EI22Var=Linear
    SectionName=VAR2   NumSegments=12   SegmentNum=12   StartSect=BRD2   EndSect=BRD2   LengthType=Variable   VarLength=0.0833333333333335   EI33Var=Parabolic   EI22Var=Linear
- 
+
 TABLE:  "FRAME SECTION PROPERTIES 06 - POLYGON DATA"
    SectionName=BRD1   Polygon=1   Point=1   X=0   Y=5.667   Opening=No   Material=3500Psi   RefPtX=26   RefPtY=5.667
    SectionName=BRD1   Polygon=1   Point=2   X=52   Y=5.667
