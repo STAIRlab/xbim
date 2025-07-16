@@ -1,6 +1,6 @@
 
 class Tables:
-    def __init__(data: dict):
+    def __init__(self, data: dict):
         self.data = data
 
     def any(self, table, **kwds)->dict:

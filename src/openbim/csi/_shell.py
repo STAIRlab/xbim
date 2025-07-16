@@ -2,7 +2,7 @@
 from .utility import UnimplementedInstance, find_row
 from ..convert import RE, TYPES
 
-def create_shells(csi, model, library, conv):
+def add_shells(csi, model, conv):
     for shell in csi.get("CONNECTIVITY - AREA", []):
         if "AREA ADDED MASS ASSIGNMENTS" in csi:
             row = find_row(csi["AREA ADDED MASS ASSIGNMENTS"],

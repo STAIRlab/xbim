@@ -1,5 +1,4 @@
 
-
 class Log:
     def append(self, table, field, object):
         pass
